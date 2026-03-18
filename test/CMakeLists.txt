@@ -97,7 +97,6 @@ set (pythonTests
   completed.test.py
   confirmation.test.py
   count.test.py
-  custom.recur_ind.test.py
   custom.test.py
   custom.tag_ind.test.py
   date.iso.test.py
@@ -121,7 +120,6 @@ set (pythonTests
   export.test.py
   feature.default.project.test.py
   feature.print.empty.columns.test.py
-  feature.recurrence.test.py
   feedback.test.py
   filter.test.py
   fontunderline.test.py
@@ -158,7 +156,6 @@ set (pythonTests
   quotes.test.py
   rc.override.test.py
   read-only.test.py
-  recurrence.test.py
   reports.test.py
   search.test.py
   sequence.test.py
@@ -173,6 +170,7 @@ set (pythonTests
   summary.test.py
   tag.test.py
   timesheet.test.py
+  tree.test.py
   tw-1837.test.py
   tw-1999.test.py
   tw-20.test.py

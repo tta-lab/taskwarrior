@@ -65,15 +65,53 @@ class Task(object):
         self.hooks = None
 
     def _init_test_db(self):
-        """Create PowerSync schema tables in a fresh SQLite database."""
+        """Create PowerSync schema tables and views in a fresh SQLite database.
+
+        The PowerSync backend checks for tc_tasks as a VIEW (not a table),
+        so we create tc_tasks_data as the backing table, tc_tasks as a view,
+        and INSTEAD OF triggers to make the view writable.
+        """
         conn = sqlite3.connect(self.db_path)
         conn.executescript("""
-            CREATE TABLE IF NOT EXISTS tc_tasks (
+            CREATE TABLE IF NOT EXISTS tc_tasks_data (
                 id TEXT PRIMARY KEY, user_id TEXT, data TEXT NOT NULL DEFAULT '{}',
                 entry_at TEXT, status TEXT, description TEXT, priority TEXT,
                 modified_at TEXT, due_at TEXT, scheduled_at TEXT, start_at TEXT,
                 end_at TEXT, wait_at TEXT, parent_id TEXT, position TEXT, project_id TEXT
             );
+            CREATE VIEW IF NOT EXISTS tc_tasks AS
+                SELECT id, user_id, data, entry_at, status, description, priority,
+                       modified_at, due_at, scheduled_at, start_at, end_at, wait_at,
+                       parent_id, position, project_id
+                FROM tc_tasks_data;
+            CREATE TRIGGER IF NOT EXISTS tc_tasks_insert
+                INSTEAD OF INSERT ON tc_tasks BEGIN
+                    INSERT OR REPLACE INTO tc_tasks_data
+                        (id, user_id, data, entry_at, status, description, priority,
+                         modified_at, due_at, scheduled_at, start_at, end_at, wait_at,
+                         parent_id, position, project_id)
+                    VALUES (NEW.id, NEW.user_id, COALESCE(NEW.data, '{}'), NEW.entry_at,
+                            NEW.status, NEW.description, NEW.priority, NEW.modified_at,
+                            NEW.due_at, NEW.scheduled_at, NEW.start_at, NEW.end_at,
+                            NEW.wait_at, NEW.parent_id, NEW.position, NEW.project_id);
+                END;
+            CREATE TRIGGER IF NOT EXISTS tc_tasks_update
+                INSTEAD OF UPDATE ON tc_tasks BEGIN
+                    UPDATE tc_tasks_data SET
+                        user_id = NEW.user_id, data = COALESCE(NEW.data, '{}'),
+                        entry_at = NEW.entry_at, status = NEW.status,
+                        description = NEW.description, priority = NEW.priority,
+                        modified_at = NEW.modified_at, due_at = NEW.due_at,
+                        scheduled_at = NEW.scheduled_at, start_at = NEW.start_at,
+                        end_at = NEW.end_at, wait_at = NEW.wait_at,
+                        parent_id = NEW.parent_id, position = NEW.position,
+                        project_id = NEW.project_id
+                    WHERE id = OLD.id;
+                END;
+            CREATE TRIGGER IF NOT EXISTS tc_tasks_delete
+                INSTEAD OF DELETE ON tc_tasks BEGIN
+                    DELETE FROM tc_tasks_data WHERE id = OLD.id;
+                END;
             CREATE TABLE IF NOT EXISTS tc_operations (
                 id TEXT PRIMARY KEY, user_id TEXT, data TEXT NOT NULL,
                 created_at TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%f', 'now'))
@@ -89,6 +127,9 @@ class Task(object):
             CREATE TABLE IF NOT EXISTS tc_annotations (
                 id TEXT PRIMARY KEY, task_id TEXT NOT NULL, user_id TEXT,
                 entry_at TEXT NOT NULL, description TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS tc_working_set (
+                uuid TEXT PRIMARY KEY
             );
         """)
         conn.close()

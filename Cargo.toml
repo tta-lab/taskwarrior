@@ -5,3 +5,6 @@ members = [
 ]
 
 resolver = "2"
+
+[patch."https://github.com/tta-lab/taskchampion.git"]
+taskchampion = { path = "src/taskchampion-local" }
