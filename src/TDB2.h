@@ -63,6 +63,7 @@ class TDB2 {
   bool has(const std::string&);
   const std::vector<Task> children(const std::string& parent_uuid);
   const std::vector<Task> descendants(const std::string& parent_uuid);
+  rust::Box<tc::TreeMapWrapper> tree_map();
 
   // ID <--> UUID mapping.
   std::string uuid(int);

@@ -31,6 +31,7 @@
 #include <Context.h>
 #include <feedback.h>
 #include <format.h>
+#include <taskchampion-cpp/lib.h>
 
 ////////////////////////////////////////////////////////////////////////////////
 CmdAdd::CmdAdd() {
@@ -60,6 +61,19 @@ int CmdAdd::execute(std::string& output) {
   // inconsistency is probably user error.
   task.validate_add();
 
+  // Compute position if task has a parent (append to end of parent's children).
+  if (task.has("parent") && task.get("parent") != "") {
+    auto parent_uuid = task.get("parent");
+    auto tm = Context::getContext().tdb2.tree_map();
+    auto parent_tc = tc::uuid_from_string(parent_uuid);
+    auto nil_uuid = tc::uuid_from_string("00000000-0000-0000-0000-000000000000");
+    auto siblings = tm->sibling_positions(parent_tc, false, nil_uuid, false);
+    std::string last_pos;
+    if (!siblings.empty()) last_pos = static_cast<std::string>(siblings.back().value);
+    auto new_pos = tc::tc_append_position(last_pos);
+    task.set("position", static_cast<std::string>(new_pos));
+  }
+
   Context::getContext().tdb2.add(task);
 
   // Do not display ID 0, users cannot query by that
@@ -70,14 +84,22 @@ int CmdAdd::execute(std::string& output) {
   // it's enduring and never changes, and it's unlikely the caller
   // asked for this if they just wanted a human-friendly number.
 
+  std::string shortUuid = task.get("uuid").substr(0, 8);
+  std::string parentSuffix;
+  if (task.has("parent") && task.get("parent") != "") {
+    Task parent_task;
+    if (Context::getContext().tdb2.get(task.get("parent"), parent_task))
+      parentSuffix = format(" (child of '{1}')", parent_task.get("description"));
+  }
+
   if (Context::getContext().verbose("new-uuid") ||
       (Context::getContext().verbose("new-id") &&
        (status == Task::completed || status == Task::deleted)))
-    output += format("Created task {1}.\n", task.get("uuid"));
+    output += format("Created task {1}{2}.\n", shortUuid, parentSuffix);
 
   else if (Context::getContext().verbose("new-id") &&
            (status == Task::pending || status == Task::waiting))
-    output += format("Created task {1}.\n", task.id);
+    output += format("Created task {1}{2}.\n", shortUuid, parentSuffix);
 
   if (Context::getContext().verbose("project"))
     Context::getContext().footnote(onProjectChange(task));

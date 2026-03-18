@@ -103,6 +103,17 @@ int CmdDone::execute(std::string&) {
         if (Context::getContext().verbose("project"))
           projectChanges[task.get("project")] = onProjectChange(task);
 
+        // Auto-complete all pending/waiting descendants (no prompt).
+        auto desc = Context::getContext().tdb2.descendants(task.get("uuid"));
+        for (auto& d : desc) {
+          if (d.getStatus() == Task::pending || d.getStatus() == Task::waiting) {
+            d.setStatus(Task::completed);
+            d.setAsNow("end");
+            Context::getContext().tdb2.modify(d);
+            ++count;
+          }
+        }
+
         // Save unmodified task for potential nagging later
         modified.push_back(before);
       } else {

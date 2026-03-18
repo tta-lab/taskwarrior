@@ -93,6 +93,26 @@ int CmdDelete::execute(std::string&) {
         dependencyChainOnComplete(task);
         if (Context::getContext().verbose("project"))
           projectChanges[task.get("project")] = onProjectChange(task);
+
+        // Prompt to delete pending descendants.
+        auto desc = Context::getContext().tdb2.descendants(task.get("uuid"));
+        int pending_count = 0;
+        for (auto& d : desc)
+          if (d.getStatus() == Task::pending || d.getStatus() == Task::waiting) ++pending_count;
+        if (pending_count > 0) {
+          std::string child_question =
+              format("Task has {1} pending descendant(s). Delete them too?", pending_count);
+          if (permission(child_question, 1)) {
+            for (auto& d : desc) {
+              if (d.getStatus() != Task::deleted) {
+                d.setStatus(Task::deleted);
+                d.setAsNow("end");
+                Context::getContext().tdb2.modify(d);
+                ++count;
+              }
+            }
+          }
+        }
       } else {
         std::cout << "Task not deleted.\n";
         rc = 1;

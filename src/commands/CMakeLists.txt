@@ -52,6 +52,8 @@ set (commands_SRCS Command.cpp        Command.h
                    CmdSummary.cpp     CmdSummary.h
                    CmdTags.cpp        CmdTags.h
                    CmdTimesheet.cpp   CmdTimesheet.h
+                   CmdTree.cpp        CmdTree.h
+                   CmdPlan.cpp        CmdPlan.h
                    CmdUDAs.cpp        CmdUDAs.h
                    CmdUndo.cpp        CmdUndo.h
                    CmdUnique.cpp      CmdUnique.h

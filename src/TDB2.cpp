@@ -388,6 +388,12 @@ const std::vector<Task> TDB2::descendants(const std::string& parent_uuid) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// Build a TreeMap from all tasks via the TCH bridge.
+rust::Box<tc::TreeMapWrapper> TDB2::tree_map() {
+  return replica()->tree_map();
+}
+
+////////////////////////////////////////////////////////////////////////////////
 std::string TDB2::uuid(int id) {
   auto& ws = working_set();
   auto uuid = ws->by_index(id);
