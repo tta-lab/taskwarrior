@@ -40,7 +40,6 @@ CmdLog::CmdLog() {
   _read_only = false;
   _displays_id = false;
   _needs_gc = false;
-  _needs_recur_update = false;
   _uses_context = true;
   _accepts_filter = false;
   _accepts_modifications = true;
@@ -54,9 +53,6 @@ int CmdLog::execute(std::string& output) {
   Task task;
   task.modify(Task::modReplace, true);
   task.setStatus(Task::completed);
-
-  // Cannot log recurring tasks.
-  if (task.has("recur")) throw std::string("You cannot log recurring tasks.");
 
   // Cannot log waiting tasks.
   if (task.has("wait")) throw std::string("You cannot log waiting tasks.");

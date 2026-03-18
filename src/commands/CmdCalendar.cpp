@@ -48,7 +48,6 @@ CmdCalendar::CmdCalendar() {
   _read_only = true;
   _displays_id = true;
   _needs_gc = true;
-  _needs_recur_update = false;
   _uses_context = false;
   _accepts_filter = false;
   _accepts_modifications = false;

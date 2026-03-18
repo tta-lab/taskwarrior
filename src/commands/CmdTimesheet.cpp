@@ -47,7 +47,6 @@ CmdTimesheet::CmdTimesheet() {
   _read_only = true;
   _displays_id = false;
   _needs_gc = true;
-  _needs_recur_update = true;
   _uses_context = false;
   _accepts_filter = true;
   _accepts_modifications = false;

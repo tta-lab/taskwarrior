@@ -35,7 +35,7 @@
 class CmdPurge : public Command {
  private:
   void handleRelations(Task& task, std::vector<Task>& tasks);
-  void handleChildren(Task& task, std::vector<Task>& tasks);
+  void checkPendingChildren(Task& task);
   void handleDeps(Task& task);
 
  public:

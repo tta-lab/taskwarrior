@@ -33,22 +33,16 @@
 #include <ColEnd.h>
 #include <ColEntry.h>
 #include <ColID.h>
-#include <ColIMask.h>
-#include <ColLast.h>
-#include <ColMask.h>
 #include <ColModified.h>
 #include <ColParent.h>
+#include <ColPosition.h>
 #include <ColProject.h>
-#include <ColRType.h>
-#include <ColRecur.h>
 #include <ColScheduled.h>
 #include <ColStart.h>
 #include <ColStatus.h>
 #include <ColTags.h>
-#include <ColTemplate.h>
 #include <ColUDA.h>
 #include <ColUUID.h>
-#include <ColUntil.h>
 #include <ColUrgency.h>
 #include <ColWait.h>
 #include <Column.h>
@@ -90,22 +84,14 @@ Column* Column::factory(const std::string& name, const std::string& report) {
     c = new ColumnEntry();
   else if (column_name == "id")
     c = new ColumnID();
-  else if (column_name == "imask")
-    c = new ColumnIMask();
-  else if (column_name == "last")
-    c = new ColumnLast();
-  else if (column_name == "mask")
-    c = new ColumnMask();
   else if (column_name == "modified")
     c = new ColumnModified();
   else if (column_name == "parent")
     c = new ColumnParent();
+  else if (column_name == "position")
+    c = new ColumnPosition();
   else if (column_name == "project")
     c = new ColumnProject();
-  else if (column_name == "recur")
-    c = new ColumnRecur();
-  else if (column_name == "rtype")
-    c = new ColumnRType();
   else if (column_name == "scheduled")
     c = new ColumnScheduled();
   else if (column_name == "start")
@@ -114,10 +100,6 @@ Column* Column::factory(const std::string& name, const std::string& report) {
     c = new ColumnStatus();
   else if (column_name == "tags")
     c = new ColumnTags();
-  else if (column_name == "template")
-    c = new ColumnTemplate();
-  else if (column_name == "until")
-    c = new ColumnUntil();
   else if (column_name == "urgency")
     c = new ColumnUrgency();
   else if (column_name == "uuid")
@@ -154,21 +136,13 @@ void Column::factory(std::map<std::string, Column*>& all) {
   all[c->_name] = c;
   c = new ColumnID();
   all[c->_name] = c;
-  c = new ColumnIMask();
-  all[c->_name] = c;
-  c = new ColumnLast();
-  all[c->_name] = c;
-  c = new ColumnMask();
-  all[c->_name] = c;
   c = new ColumnModified();
   all[c->_name] = c;
   c = new ColumnParent();
   all[c->_name] = c;
+  c = new ColumnPosition();
+  all[c->_name] = c;
   c = new ColumnProject();
-  all[c->_name] = c;
-  c = new ColumnRecur();
-  all[c->_name] = c;
-  c = new ColumnRType();
   all[c->_name] = c;
   c = new ColumnScheduled();
   all[c->_name] = c;
@@ -177,10 +151,6 @@ void Column::factory(std::map<std::string, Column*>& all) {
   c = new ColumnStatus();
   all[c->_name] = c;
   c = new ColumnTags();
-  all[c->_name] = c;
-  c = new ColumnTemplate();
-  all[c->_name] = c;
-  c = new ColumnUntil();
   all[c->_name] = c;
   c = new ColumnUrgency();
   all[c->_name] = c;

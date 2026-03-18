@@ -64,7 +64,6 @@ CmdEdit::CmdEdit() {
   _read_only = false;
   _displays_id = false;
   _needs_gc = false;
-  _needs_recur_update = true;
   _uses_context = true;
   _accepts_filter = true;
   _accepts_modifications = false;
@@ -215,7 +214,6 @@ std::string CmdEdit::formatTask(Task task, const std::string& dateformat) {
          << "  Scheduled:         " << formatDate(task, "scheduled", dateformat) << '\n'
          << "  Due:               " << formatDate(task, "due", dateformat) << '\n'
          << "  Until:             " << formatDate(task, "until", dateformat) << '\n'
-         << "  Recur:             " << task.get("recur") << '\n'
          << "  Wait until:        " << formatDate(task, "wait", dateformat) << '\n'
          << "# Modified:          " << formatDate(task, "modified", dateformat) << '\n'
          << "  Parent:            " << task.get("parent") << '\n';
@@ -410,8 +408,8 @@ void CmdEdit::parseTask(Task& task, const std::string& after, const std::string&
     }
   } else {
     if (task.get("due") != "") {
-      if (task.getStatus() == Task::recurring || task.get("parent") != "") {
-        Context::getContext().footnote("Cannot remove a due date from a recurring task.");
+      if (false) {
+        // placeholder — recurring check removed
       } else {
         Context::getContext().footnote("Due date removed.");
         task.remove("due");
@@ -435,31 +433,6 @@ void CmdEdit::parseTask(Task& task, const std::string& after, const std::string&
     if (task.get("until") != "") {
       Context::getContext().footnote("Until date removed.");
       task.remove("until");
-    }
-  }
-
-  // recur
-  value = findValue(after, "\n  Recur:");
-  if (value != task.get("recur")) {
-    if (value != "") {
-      Duration p;
-      std::string::size_type idx = 0;
-      if (p.parse(value, idx)) {
-        Context::getContext().footnote("Recurrence modified.");
-        if (task.get("due") != "") {
-          task.set("recur", value);
-          task.setStatus(Task::recurring);
-        } else
-          throw std::string("A recurring task must have a due date.");
-      } else
-        throw std::string("Not a valid recurrence duration.");
-    } else {
-      Context::getContext().footnote("Recurrence removed.");
-      task.setStatus(Task::pending);
-      task.remove("recur");
-      task.remove("until");
-      task.remove("mask");
-      task.remove("imask");
     }
   }
 

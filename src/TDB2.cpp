@@ -360,61 +360,28 @@ bool TDB2::has(const std::string& uuid) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-const std::vector<Task> TDB2::siblings(Task& task) {
+// Returns all tasks whose `parent` field matches parent_uuid (direct children).
+const std::vector<Task> TDB2::children(const std::string& parent_uuid) {
   std::vector<Task> results;
-  if (task.has("parent")) {
-    std::string parent = task.get("parent");
-
-    for (auto& i : this->pending_tasks()) {
-      // Do not include self in results.
-      if (i.id != task.id) {
-        // Do not include completed or deleted tasks.
-        if (i.getStatus() != Task::completed && i.getStatus() != Task::deleted) {
-          // If task has the same parent, it is a sibling.
-          if (i.has("parent") && i.get("parent") == parent) {
-            results.push_back(i);
-          }
-        }
-      }
-    }
+  for (auto& task : all_tasks()) {
+    if (task.get("parent") == parent_uuid) results.push_back(task);
   }
-
   return results;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-const std::vector<Task> TDB2::children(Task& parent) {
-  // scan _pending_ tasks for those with `parent` equal to this task
+// Returns all descendants (children, grandchildren, etc.) of parent_uuid.
+const std::vector<Task> TDB2::descendants(const std::string& parent_uuid) {
   std::vector<Task> results;
-  std::string this_uuid = parent.get("uuid");
-
-  auto& ws = working_set();
-  size_t end_idx = ws->largest_index();
-
-  for (size_t i = 0; i <= end_idx; i++) {
-    auto uuid = ws->by_index(i);
-    if (uuid.is_nil()) {
-      continue;
-    }
-
-    // skip self-references
-    if (uuid.to_string() == this_uuid) {
-      continue;
-    }
-
-    auto task_opt = replica()->get_task_data(uuid);
-    if (task_opt.is_none()) {
-      continue;
-    }
-    auto task = task_opt.take();
-
-    std::string parent_uuid;
-    if (!task->get("parent", parent_uuid)) {
-      continue;
-    }
-
-    if (parent_uuid == this_uuid) {
-      results.push_back(Task(std::move(task)));
+  std::vector<std::string> queue = {parent_uuid};
+  while (!queue.empty()) {
+    std::string current = queue.back();
+    queue.pop_back();
+    for (auto& task : all_tasks()) {
+      if (task.get("parent") == current) {
+        results.push_back(task);
+        queue.push_back(task.get("uuid"));
+      }
     }
   }
   return results;

@@ -63,8 +63,6 @@ void ColumnStatus::measure(Task& task, unsigned int& minimum, unsigned int& maxi
       minimum = maximum = utf8_width("Waiting");
     else if (status == Task::completed)
       minimum = maximum = utf8_width("Completed");
-    else if (status == Task::recurring)
-      minimum = maximum = utf8_width("Recurring");
   } else if (_style == "short")
     minimum = maximum = 1;
 }
@@ -83,8 +81,6 @@ void ColumnStatus::render(std::vector<std::string>& lines, Task& task, int width
       value = "Deleted";
     else if (status == Task::waiting)
       value = "Waiting";
-    else if (status == Task::recurring)
-      value = "Recurring";
   }
 
   else if (_style == "short") {
@@ -96,8 +92,6 @@ void ColumnStatus::render(std::vector<std::string>& lines, Task& task, int width
       value = "D";
     else if (status == Task::waiting)
       value = "W";
-    else if (status == Task::recurring)
-      value = "R";
   }
 
   renderStringLeft(lines, width, color, value);

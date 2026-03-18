@@ -44,7 +44,6 @@ CmdAnnotate::CmdAnnotate() {
   _read_only = false;
   _displays_id = false;
   _needs_gc = false;
-  _needs_recur_update = false;
   _uses_context = false;
   _accepts_filter = true;
   _accepts_modifications = true;
@@ -90,27 +89,6 @@ int CmdAnnotate::execute(std::string&) {
       if (Context::getContext().verbose("project"))
         projectChanges[task.get("project")] = onProjectChange(task, false);
 
-      // Annotate siblings.
-      if (task.has("parent")) {
-        if ((Context::getContext().config.get("recurrence.confirmation") == "prompt" &&
-             confirm("This is a recurring task.  Do you want to annotate all pending recurrences "
-                     "of this same task?")) ||
-            Context::getContext().config.getBoolean("recurrence.confirmation")) {
-          auto siblings = Context::getContext().tdb2.siblings(task);
-          for (auto& sibling : siblings) {
-            sibling.modify(Task::modAnnotate, true);
-            Context::getContext().tdb2.modify(sibling);
-            ++count;
-            feedback_affected("Annotating recurring task {1} '{2}'.", sibling);
-          }
-
-          // Annotate the parent
-          Task parent;
-          Context::getContext().tdb2.get(task.get("parent"), parent);
-          parent.modify(Task::modAnnotate, true);
-          Context::getContext().tdb2.modify(parent);
-        }
-      }
     } else {
       std::cout << "Task not annotated.\n";
       rc = 1;

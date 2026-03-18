@@ -257,7 +257,6 @@ static void countTasks(const std::vector<Task>& all, const std::string& project,
           break;
 
         case Task::deleted:
-        case Task::recurring:
         default:
           break;
       }

@@ -155,7 +155,7 @@ bool Filter::hasFilter() const {
 
 ////////////////////////////////////////////////////////////////////////////////
 // If the filter contains no 'or', 'xor' or 'not' operators, and only includes
-// status values 'pending', 'waiting' or 'recurring', then the filter is
+// status values 'pending' or 'waiting', then the filter is
 // guaranteed to only need data from pending.data.
 bool Filter::pendingOnly() const {
   // When GC is off, there are no shortcuts.
@@ -170,7 +170,6 @@ bool Filter::pendingOnly() const {
   int countStatus = 0;
   int countPending = 0;
   int countWaiting = 0;
-  int countRecurring = 0;
   int countId = (int)Context::getContext().cli2._id_ranges.size();
   int countUUID = (int)Context::getContext().cli2._uuid_list.size();
   int countOr = 0;
@@ -190,7 +189,6 @@ bool Filter::pendingOnly() const {
       if (a._lextype == Lexer::Type::dom && canonical == "status") ++countStatus;
       if (raw == "pending") ++countPending;
       if (raw == "waiting") ++countWaiting;
-      if (raw == "recurring") ++countRecurring;
     }
   }
 
@@ -206,7 +204,7 @@ bool Filter::pendingOnly() const {
   if (pendingTag || activeTag) return true;
 
   if (countStatus) {
-    if (!countPending && !countWaiting && !countRecurring) return false;
+    if (!countPending && !countWaiting) return false;
 
     return true;
   }

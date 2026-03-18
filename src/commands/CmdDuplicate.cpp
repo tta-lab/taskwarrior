@@ -44,7 +44,6 @@ CmdDuplicate::CmdDuplicate() {
   _read_only = false;
   _displays_id = false;
   _needs_gc = false;
-  _needs_recur_update = false;
   _uses_context = true;
   _accepts_filter = true;
   _accepts_modifications = true;
@@ -78,28 +77,9 @@ int CmdDuplicate::execute(std::string&) {
     dup.remove("end");        // Does not inherit end date.
     dup.remove("entry");      // Does not inherit entry date.
 
-    // When duplicating a child task, downgrade it to a plain task.
-    if (dup.has("parent")) {
-      dup.remove("parent");
-      dup.remove("recur");
-      dup.remove("until");
-      dup.remove("imask");
-      std::cout << format("Note: task {1} was a recurring task.  The duplicated task is not.",
-                          task.identifier())
-                << '\n';
-    }
-
-    // When duplicating a parent task, create a new parent task.
-    else if (dup.getStatus() == Task::recurring) {
-      dup.remove("mask");
-      std::cout << format(
-                       "Note: task {1} was a parent recurring task.  The duplicated task is too.",
-                       task.identifier())
-                << '\n';
-    }
-
+    // Tree children retain their parent link — the duplicate becomes another
+    // child of the same parent.
     dup.setStatus(Task::pending);  // Does not inherit status.
-                                   // Must occur after Task::recurring check.
 
     dup.modify(Task::modAnnotate);
 
@@ -115,7 +95,7 @@ int CmdDuplicate::execute(std::string&) {
           (status == Task::pending || status == Task::waiting))
         std::cout << format("Created task {1}.\n", dup.id);
 
-      else if (Context::getContext().verbose("new-uuid") && status != Task::recurring)
+      else if (Context::getContext().verbose("new-uuid"))
         std::cout << format("Created task {1}.\n", dup.get("uuid"));
 
       if (Context::getContext().verbose("project"))

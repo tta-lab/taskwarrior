@@ -50,7 +50,6 @@ CmdDiagnostics::CmdDiagnostics() {
   _read_only = true;
   _displays_id = false;
   _needs_gc = false;
-  _needs_recur_update = false;
   _uses_context = false;
   _accepts_filter = false;
   _accepts_modifications = false;
@@ -246,13 +245,12 @@ int CmdDiagnostics::execute(std::string& output) {
       }
     }
 
-    // Check recurrence parent
+    // Check tree parent
     auto parentUUID = task.get("parent");
 
     if (parentUUID != "" && !Context::getContext().tdb2.has(parentUUID)) {
       out << "             "
-          << format("Task {1} has nonexistent recurrence template {2}", task.get("uuid"),
-                    parentUUID)
+          << format("Task {1} has nonexistent parent {2}", task.get("uuid"), parentUUID)
           << '\n';
       noBrokenRefs = false;
     }

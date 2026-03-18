@@ -33,14 +33,9 @@
 #include <dependency.h>
 #include <feedback.h>
 #include <format.h>
-#include <recur.h>
 #include <shared.h>
 
 #include <iostream>
-
-#define STRING_CMD_DELETE_TASK_R "Deleting recurring task {1} '{2}'."
-#define STRING_CMD_DELETE_CONFIRM_R \
-  "This is a recurring task.  Do you want to delete all pending recurrences of this same task?"
 
 ////////////////////////////////////////////////////////////////////////////////
 CmdDelete::CmdDelete() {
@@ -51,7 +46,6 @@ CmdDelete::CmdDelete() {
   _displays_id = false;
   _needs_confirm = true;
   _needs_gc = false;
-  _needs_recur_update = false;
   _uses_context = true;
   _accepts_filter = true;
   _accepts_modifications = true;
@@ -92,7 +86,6 @@ int CmdDelete::execute(std::string&) {
       if (!task.has("end")) task.setAsNow("end");
 
       if (permission(question, filtered.size())) {
-        updateRecurrenceMask(task);
         ++count;
         Context::getContext().tdb2.modify(task);
         feedback_affected("Deleting task {1} '{2}'.", task);
@@ -100,55 +93,6 @@ int CmdDelete::execute(std::string&) {
         dependencyChainOnComplete(task);
         if (Context::getContext().verbose("project"))
           projectChanges[task.get("project")] = onProjectChange(task);
-
-        // Delete siblings.
-        if (task.has("parent")) {
-          if ((Context::getContext().config.get("recurrence.confirmation") == "prompt" &&
-               confirm(STRING_CMD_DELETE_CONFIRM_R)) ||
-              Context::getContext().config.getBoolean("recurrence.confirmation")) {
-            std::vector<Task> siblings = Context::getContext().tdb2.siblings(task);
-            for (auto& sibling : siblings) {
-              sibling.modify(Task::modAnnotate);
-              sibling.setStatus(Task::deleted);
-              if (!sibling.has("end")) sibling.setAsNow("end");
-
-              updateRecurrenceMask(sibling);
-              Context::getContext().tdb2.modify(sibling);
-              feedback_affected(STRING_CMD_DELETE_TASK_R, sibling);
-              feedback_unblocked(sibling);
-              ++count;
-            }
-
-            // Delete the parent
-            Task parent;
-            Context::getContext().tdb2.get(task.get("parent"), parent);
-            parent.setStatus(Task::deleted);
-            if (!parent.has("end")) parent.setAsNow("end");
-
-            Context::getContext().tdb2.modify(parent);
-          }
-        }
-
-        // Task potentially has child tasks - optionally delete them.
-        else {
-          std::vector<Task> children = Context::getContext().tdb2.children(task);
-          if (children.size() &&
-              ((Context::getContext().config.get("recurrence.confirmation") == "prompt" &&
-                confirm(STRING_CMD_DELETE_CONFIRM_R)) ||
-               Context::getContext().config.getBoolean("recurrence.confirmation"))) {
-            for (auto& child : children) {
-              child.modify(Task::modAnnotate);
-              child.setStatus(Task::deleted);
-              if (!child.has("end")) child.setAsNow("end");
-
-              updateRecurrenceMask(child);
-              Context::getContext().tdb2.modify(child);
-              feedback_affected(STRING_CMD_DELETE_TASK_R, child);
-              feedback_unblocked(child);
-              ++count;
-            }
-          }
-        }
       } else {
         std::cout << "Task not deleted.\n";
         rc = 1;

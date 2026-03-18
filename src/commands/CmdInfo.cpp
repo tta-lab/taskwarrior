@@ -59,7 +59,6 @@ CmdInfo::CmdInfo() {
   // Once the test suite is completely modified, this can be corrected.
   _displays_id = false;
   _needs_gc = false;
-  _needs_recur_update = false;
   _uses_context = false;
   _accepts_filter = true;
   _accepts_modifications = false;
@@ -164,56 +163,11 @@ int CmdInfo::execute(std::string& output) {
       }
     }
 
-    // recur
-    if (task.has("recur")) {
-      row = view.addRow();
-      view.set(row, 0, "Recurrence");
-      view.set(row, 1, task.get("recur"));
-    }
-
-    // parent
-    // 2017-01-07: Deprecated in 2.6.0
+    // parent (tree hierarchy)
     if (task.has("parent")) {
       row = view.addRow();
       view.set(row, 0, "Parent task");
       view.set(row, 1, task.get("parent"));
-    }
-
-    // mask
-    // 2017-01-07: Deprecated in 2.6.0
-    if (task.has("mask")) {
-      row = view.addRow();
-      view.set(row, 0, "Mask");
-      view.set(row, 1, task.get("mask"));
-    }
-
-    // imask
-    // 2017-01-07: Deprecated in 2.6.0
-    if (task.has("imask")) {
-      row = view.addRow();
-      view.set(row, 0, "Mask Index");
-      view.set(row, 1, task.get("imask"));
-    }
-
-    // template
-    if (task.has("template")) {
-      row = view.addRow();
-      view.set(row, 0, "Template task");
-      view.set(row, 1, task.get("template"));
-    }
-
-    // last
-    if (task.has("last")) {
-      row = view.addRow();
-      view.set(row, 0, "Last instance");
-      view.set(row, 1, task.get("last"));
-    }
-
-    // rtype
-    if (task.has("rtype")) {
-      row = view.addRow();
-      view.set(row, 0, "Recurrence type");
-      view.set(row, 1, task.get("rtype"));
     }
 
     // entry

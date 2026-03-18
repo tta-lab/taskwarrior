@@ -61,8 +61,8 @@ class TDB2 {
   bool get(int, Task&);
   bool get(const std::string&, Task&);
   bool has(const std::string&);
-  const std::vector<Task> siblings(Task&);
-  const std::vector<Task> children(Task&);
+  const std::vector<Task> children(const std::string& parent_uuid);
+  const std::vector<Task> descendants(const std::string& parent_uuid);
 
   // ID <--> UUID mapping.
   std::string uuid(int);

@@ -44,7 +44,6 @@ CmdAppend::CmdAppend() {
   _read_only = false;
   _displays_id = false;
   _needs_gc = false;
-  _needs_recur_update = false;
   _uses_context = false;
   _accepts_filter = true;
   _accepts_modifications = true;
@@ -90,27 +89,6 @@ int CmdAppend::execute(std::string&) {
       if (Context::getContext().verbose("project"))
         projectChanges[task.get("project")] = onProjectChange(task, false);
 
-      // Append to siblings.
-      if (task.has("parent")) {
-        if ((Context::getContext().config.get("recurrence.confirmation") == "prompt" &&
-             confirm("This is a recurring task.  Do you want to append to all pending recurrences "
-                     "of this same task?")) ||
-            Context::getContext().config.getBoolean("recurrence.confirmation")) {
-          std::vector<Task> siblings = Context::getContext().tdb2.siblings(task);
-          for (auto& sibling : siblings) {
-            sibling.modify(Task::modAppend, true);
-            Context::getContext().tdb2.modify(sibling);
-            ++count;
-            feedback_affected("Appending to recurring task {1} '{2}'.", sibling);
-          }
-
-          // Append to the parent
-          Task parent;
-          Context::getContext().tdb2.get(task.get("parent"), parent);
-          parent.modify(Task::modAppend, true);
-          Context::getContext().tdb2.modify(parent);
-        }
-      }
     } else {
       std::cout << "Task not appended.\n";
       rc = 1;

@@ -201,11 +201,6 @@ static void colorizeOverdue(Task& task, const Color& base, Color& c, bool merge)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-static void colorizeRecurring(Task& task, const Color& base, Color& c, bool merge) {
-  if (task.has("recur")) applyColor(base, c, merge);
-}
-
-////////////////////////////////////////////////////////////////////////////////
 static void colorizeCompleted(Task& task, const Color& base, Color& c, bool merge) {
   if (task.getStatus() == Task::completed) applyColor(base, c, merge);
 }
@@ -254,8 +249,6 @@ void autoColorize(Task& task, Color& c) {
         colorizeDueToday(task, base, c, merge);
       else if (*r == "color.overdue")
         colorizeOverdue(task, base, c, merge);
-      else if (*r == "color.recurring")
-        colorizeRecurring(task, base, c, merge);
       else if (*r == "color.completed")
         colorizeCompleted(task, base, c, merge);
       else if (*r == "color.deleted")

@@ -24,7 +24,6 @@ add_library (task STATIC CLI2.cpp
                   feedback.cpp
                   legacy.cpp
                   nag.cpp
-                  recur.cpp
                   rules.cpp
                   sort.cpp
                   util.cpp)

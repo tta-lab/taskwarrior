@@ -39,7 +39,6 @@ CmdCount::CmdCount() {
   _read_only = true;
   _displays_id = false;
   _needs_gc = true;
-  _needs_recur_update = true;
   _uses_context = true;
   _accepts_filter = true;
   _accepts_modifications = false;
@@ -54,9 +53,7 @@ int CmdCount::execute(std::string& output) {
   std::vector<Task> filtered;
   filter.subset(filtered);
 
-  // Find number of matching tasks.  Skip recurring parent tasks.
-  int count = std::count_if(filtered.begin(), filtered.end(),
-                            [](const auto& task) { return task.getStatus() != Task::recurring; });
+  int count = static_cast<int>(filtered.size());
   output = format(count) + '\n';
   return 0;
 }

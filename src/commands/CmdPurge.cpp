@@ -43,7 +43,6 @@ CmdPurge::CmdPurge() {
   _displays_id = false;
   _needs_confirm = true;
   _needs_gc = true;
-  _needs_recur_update = false;
   _uses_context = true;
   _accepts_filter = true;
   _accepts_modifications = false;
@@ -54,10 +53,10 @@ CmdPurge::CmdPurge() {
 ////////////////////////////////////////////////////////////////////////////////
 // Purges the task, while taking care of:
 // - dependencies on this task
-// - child tasks
+// - pending tree children (blocked — cannot purge if children are still pending)
 void CmdPurge::handleRelations(Task& task, std::vector<Task>& tasks) {
   handleDeps(task);
-  handleChildren(task, tasks);
+  checkPendingChildren(task);
   tasks.push_back(task);
 }
 
@@ -77,46 +76,20 @@ void CmdPurge::handleDeps(Task& task) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Makes sure that with any recurrence parent are all the child tasks removed
-// as well. If user chooses not to, the whole command is aborted.
-void CmdPurge::handleChildren(Task& task, std::vector<Task>& tasks) {
-  // If this is not a recurrence parent, we have no job here
-  if (!task.has("mask")) return;
-
+// Block purging a task that has pending tree children.
+void CmdPurge::checkPendingChildren(Task& task) {
   std::string uuid = task.get("uuid");
-  std::vector<Task> children;
-
-  // Find all child tasks
   for (auto& childConst : Context::getContext().tdb2.all_tasks()) {
     Task& child = const_cast<Task&>(childConst);
-
-    if (child.get("parent") == uuid) {
-      if (child.getStatus() != Task::deleted)
-        // In case any child task is not deleted, bail out
-        throw format(
-            "Task '{1}' is a recurrence template. Its child task {2} must be deleted before it can "
-            "be purged.",
-            task.get("description"), child.identifier(true));
-      else
-        children.push_back(child);
+    if (child.get("parent") == uuid &&
+        child.getStatus() != Task::deleted &&
+        child.getStatus() != Task::completed) {
+      throw format(
+          "Task '{1}' has pending subtasks — complete or delete them first, or purge them "
+          "individually.",
+          task.get("description"));
     }
   }
-
-  // If there are no children, our job is done
-  if (children.empty()) return;
-
-  // Ask for confirmation to purge them, if needed
-  std::string question = format(
-      "Task '{1}' is a recurrence template. All its {2} deleted children tasks will be purged as "
-      "well. Continue?",
-      task.get("description"), children.size());
-
-  if (Context::getContext().config.getBoolean("recurrence.confirmation") ||
-      (Context::getContext().config.get("recurrence.confirmation") == "prompt" &&
-       confirm(question))) {
-    for (auto& child : children) handleRelations(child, tasks);
-  } else
-    throw std::string("Purge operation aborted.");
 }
 
 ////////////////////////////////////////////////////////////////////////////////

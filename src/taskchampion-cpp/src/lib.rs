@@ -155,6 +155,9 @@ mod ffi {
 
         /// Get the working set for this replica.
         fn working_set(&mut self) -> Result<Box<WorkingSet>>;
+
+        /// Build a TreeMap from all tasks in this replica.
+        fn tree_map(&mut self) -> Result<Box<TreeMapWrapper>>;
     }
 
     // --- OptionTaskData
@@ -245,6 +248,69 @@ mod ffi {
         /// UUID for task 5 will be at `all_uuids()[5]`. All elements of the vector not corresponding
         /// to a task contain the nil UUID.
         fn all_uuids(&self) -> Vec<Uuid>;
+    }
+
+    // --- UuidStringPair
+
+    /// A pair of (Uuid, String) for sibling_positions results.
+    #[derive(Debug)]
+    struct UuidStringPair {
+        uuid: Uuid,
+        value: String,
+    }
+
+    // --- TreeMapWrapper
+
+    extern "Rust" {
+        type TreeMapWrapper;
+
+        /// Return the direct children of `uuid`, in position order.
+        fn children(self: &TreeMapWrapper, uuid: Uuid) -> Vec<Uuid>;
+
+        /// Return all descendants of `uuid` in depth-first pre-order.
+        fn descendants(self: &TreeMapWrapper, uuid: Uuid) -> Vec<Uuid>;
+
+        /// Return the root tasks (those with no parent), in deterministic UUID order.
+        fn roots(self: &TreeMapWrapper) -> Vec<Uuid>;
+
+        /// Check if `ancestor` is an ancestor of `uuid`.
+        fn is_ancestor(self: &TreeMapWrapper, uuid: Uuid, ancestor: Uuid) -> bool;
+
+        /// Get sibling positions under a parent.
+        ///
+        /// `at_root` = true means parent is None (root-level siblings).
+        /// `has_exclude` = true activates the exclude filter on `exclude`.
+        fn sibling_positions(
+            self: &TreeMapWrapper,
+            parent: Uuid,
+            at_root: bool,
+            exclude: Uuid,
+            has_exclude: bool,
+        ) -> Vec<UuidStringPair>;
+
+        /// Return the UUIDs of pending direct children.
+        fn pending_child_ids(self: &TreeMapWrapper, uuid: Uuid) -> Vec<Uuid>;
+
+        /// Returns true if any task had an invalid parent UUID during construction.
+        fn had_invalid_data(self: &TreeMapWrapper) -> bool;
+    }
+
+    // --- Position helpers (free functions)
+
+    extern "Rust" {
+        /// Generate the position string for appending after `last_pos`.
+        /// Pass an empty string for `last_pos` to get the first position.
+        fn tc_append_position(last_pos: &CxxString) -> Result<String>;
+
+        /// Generate the position string for prepending before `first_pos`.
+        /// Pass an empty string for `first_pos` to get a position before the default.
+        fn tc_prepend_position(first_pos: &CxxString) -> Result<String>;
+
+        /// Generate the position string between `before_pos` and `after_pos`.
+        fn tc_between_position(before_pos: &CxxString, after_pos: &CxxString) -> Result<String>;
+
+        /// Generate `n` sequential position strings.
+        fn tc_sequential_positions(n: usize) -> Vec<String>;
     }
 }
 
@@ -579,6 +645,12 @@ impl Replica {
         rt().block_on(async { Ok(Box::new(self.0.working_set().await?.into())) })
     }
 
+    fn tree_map(&mut self) -> Result<Box<TreeMapWrapper>, CppError> {
+        rt().block_on(async {
+            let arc = self.0.tree_map().await?;
+            Ok(Box::new(TreeMapWrapper((*arc).clone())))
+        })
+    }
 }
 
 // --- OptionTaskData
@@ -728,6 +800,97 @@ impl WorkingSet {
         }
         res
     }
+}
+
+// --- TreeMapWrapper
+
+struct TreeMapWrapper(tc::TreeMap);
+
+impl TreeMapWrapper {
+    fn children(&self, uuid: ffi::Uuid) -> Vec<ffi::Uuid> {
+        self.0
+            .children(uuid.into())
+            .into_iter()
+            .map(ffi::Uuid::from)
+            .collect()
+    }
+
+    fn descendants(&self, uuid: ffi::Uuid) -> Vec<ffi::Uuid> {
+        self.0
+            .descendants(uuid.into())
+            .into_iter()
+            .map(ffi::Uuid::from)
+            .collect()
+    }
+
+    fn roots(&self) -> Vec<ffi::Uuid> {
+        self.0.roots().into_iter().map(ffi::Uuid::from).collect()
+    }
+
+    fn is_ancestor(&self, uuid: ffi::Uuid, ancestor: ffi::Uuid) -> bool {
+        self.0.is_ancestor(uuid.into(), ancestor.into())
+    }
+
+    fn sibling_positions(
+        &self,
+        parent: ffi::Uuid,
+        at_root: bool,
+        exclude: ffi::Uuid,
+        has_exclude: bool,
+    ) -> Vec<ffi::UuidStringPair> {
+        let parent_opt = if at_root { None } else { Some(parent.into()) };
+        let exclude_opt = if has_exclude {
+            Some(tc::Uuid::from(&exclude))
+        } else {
+            None
+        };
+        self.0
+            .sibling_positions(parent_opt, exclude_opt)
+            .into_iter()
+            .map(|(uuid, value)| ffi::UuidStringPair {
+                uuid: uuid.into(),
+                value,
+            })
+            .collect()
+    }
+
+    fn pending_child_ids(&self, uuid: ffi::Uuid) -> Vec<ffi::Uuid> {
+        self.0
+            .pending_child_ids(uuid.into())
+            .into_iter()
+            .map(ffi::Uuid::from)
+            .collect()
+    }
+
+    fn had_invalid_data(&self) -> bool {
+        self.0.had_invalid_data()
+    }
+}
+
+// --- Position helpers
+
+fn tc_append_position(last_pos: &CxxString) -> Result<String, CppError> {
+    let s = last_pos.to_string_lossy();
+    let opt = if s.is_empty() { None } else { Some(s.as_ref()) };
+    tc::append_position(opt).map_err(|e| CppError(tc::Error::Other(e)))
+}
+
+fn tc_prepend_position(first_pos: &CxxString) -> Result<String, CppError> {
+    let s = first_pos.to_string_lossy();
+    let opt = if s.is_empty() { None } else { Some(s.as_ref()) };
+    tc::prepend_position(opt).map_err(|e| CppError(tc::Error::Other(e)))
+}
+
+fn tc_between_position(before_pos: &CxxString, after_pos: &CxxString) -> Result<String, CppError> {
+    tc::between_position(
+        before_pos.to_string_lossy().as_ref(),
+        after_pos.to_string_lossy().as_ref(),
+    )
+    .map_err(|e| CppError(tc::Error::Other(e)))
+}
+
+fn tc_sequential_positions(n: usize) -> Vec<String> {
+    tc::sequential_positions(n)
 }
 
 #[cfg(test)]

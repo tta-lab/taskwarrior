@@ -32,14 +32,9 @@
 #include <Filter.h>
 #include <feedback.h>
 #include <format.h>
-#include <recur.h>
 #include <shared.h>
 
 #include <iostream>
-
-#define STRING_CMD_MODIFY_TASK_R "Modifying recurring task {1} '{2}'."
-#define STRING_CMD_MODIFY_RECUR \
-  "This is a recurring task.  Do you want to modify all pending recurrences of this same task?"
 
 ////////////////////////////////////////////////////////////////////////////////
 CmdModify::CmdModify() {
@@ -49,7 +44,6 @@ CmdModify::CmdModify() {
   _read_only = false;
   _displays_id = false;
   _needs_gc = false;
-  _needs_recur_update = false;
   _uses_context = false;
   _accepts_filter = true;
   _accepts_modifications = true;
@@ -107,18 +101,7 @@ int CmdModify::execute(std::string&) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// TODO Why is this not in Task::validate?
 void CmdModify::checkConsistency(Task& before, Task& after) {
-  // Perform some logical consistency checks.
-  if (after.has("recur") && !after.has("due") && !before.has("due"))
-    throw std::string("You cannot specify a recurring task without a due date.");
-
-  if (before.has("recur") && before.has("due") && (!after.has("due") || after.get("due") == ""))
-    throw std::string("You cannot remove the due date from a recurring task.");
-
-  if (before.has("recur") && (!after.has("recur") || after.get("recur") == ""))
-    throw std::string("You cannot remove the recurrence from a recurring task.");
-
   if ((before.getStatus() == Task::pending) && (after.getStatus() == Task::pending) &&
       (before.get("end") == "") && (after.get("end") != ""))
     throw format("Could not modify task {1}. You cannot set an end date on a pending task.",
@@ -128,78 +111,13 @@ void CmdModify::checkConsistency(Task& before, Task& after) {
 ////////////////////////////////////////////////////////////////////////////////
 int CmdModify::modifyAndUpdate(Task& before, Task& after,
                                std::map<std::string, std::string>* projectChanges /* = NULL */) {
-  // This task.
   auto count = 1;
 
-  updateRecurrenceMask(after);
   feedback_affected("Modifying task {1} '{2}'.", after);
   feedback_unblocked(after);
   Context::getContext().tdb2.modify(after);
   if (Context::getContext().verbose("project") && projectChanges)
     (*projectChanges)[after.get("project")] = onProjectChange(before, after);
-
-  // Task has siblings - modify them.
-  if (after.has("parent")) count += modifyRecurrenceSiblings(after, projectChanges);
-
-  // Task has child tasks - modify them.
-  else if (after.get("status") == "recurring")
-    count += modifyRecurrenceParent(after, projectChanges);
-
-  return count;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-int CmdModify::modifyRecurrenceSiblings(
-    Task& task, std::map<std::string, std::string>* projectChanges /* = NULL */) {
-  auto count = 0;
-
-  if ((Context::getContext().config.get("recurrence.confirmation") == "prompt" &&
-       confirm(STRING_CMD_MODIFY_RECUR)) ||
-      Context::getContext().config.getBoolean("recurrence.confirmation")) {
-    std::vector<Task> siblings = Context::getContext().tdb2.siblings(task);
-    for (auto& sibling : siblings) {
-      Task alternate(sibling);
-      sibling.modify(Task::modReplace);
-      updateRecurrenceMask(sibling);
-      ++count;
-      feedback_affected(STRING_CMD_MODIFY_TASK_R, sibling);
-      feedback_unblocked(sibling);
-      Context::getContext().tdb2.modify(sibling);
-      if (Context::getContext().verbose("project") && projectChanges)
-        (*projectChanges)[sibling.get("project")] = onProjectChange(alternate, sibling);
-    }
-
-    // Modify the parent
-    Task parent;
-    Context::getContext().tdb2.get(task.get("parent"), parent);
-    parent.modify(Task::modReplace);
-    Context::getContext().tdb2.modify(parent);
-  }
-
-  return count;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-int CmdModify::modifyRecurrenceParent(
-    Task& task, std::map<std::string, std::string>* projectChanges /* = NULL */) {
-  auto count = 0;
-
-  auto children = Context::getContext().tdb2.children(task);
-  if (children.size() &&
-      ((Context::getContext().config.get("recurrence.confirmation") == "prompt" &&
-        confirm(STRING_CMD_MODIFY_RECUR)) ||
-       Context::getContext().config.getBoolean("recurrence.confirmation"))) {
-    for (auto& child : children) {
-      Task alternate(child);
-      child.modify(Task::modReplace);
-      updateRecurrenceMask(child);
-      Context::getContext().tdb2.modify(child);
-      if (Context::getContext().verbose("project") && projectChanges)
-        (*projectChanges)[child.get("project")] = onProjectChange(alternate, child);
-      ++count;
-      feedback_affected(STRING_CMD_MODIFY_TASK_R, child);
-    }
-  }
 
   return count;
 }

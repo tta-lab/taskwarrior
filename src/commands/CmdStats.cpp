@@ -48,7 +48,6 @@ CmdStats::CmdStats() {
   _read_only = true;
   _displays_id = false;
   _needs_gc = true;
-  _needs_recur_update = false;
   _uses_context = true;
   _accepts_filter = true;
   _accepts_modifications = false;
@@ -85,7 +84,6 @@ int CmdStats::execute(std::string& output) {
   int waitingT = 0;
   int taggedT = 0;
   int annotationsT = 0;
-  int recurringT = 0;
   int blockingT = 0;
   int blockedT = 0;
   float daysPending = 0.0;
@@ -106,9 +104,6 @@ int CmdStats::execute(std::string& output) {
         break;
       case Task::completed:
         ++completedT;
-        break;
-      case Task::recurring:
-        ++recurringT;
         break;
       case Task::waiting:
         ++waitingT;
@@ -157,10 +152,6 @@ int CmdStats::execute(std::string& output) {
   row = view.addRow();
   view.set(row, 0, "Waiting");
   view.set(row, 1, waitingT);
-
-  row = view.addRow();
-  view.set(row, 0, "Recurring");
-  view.set(row, 1, recurringT);
 
   row = view.addRow();
   view.set(row, 0, "Completed");

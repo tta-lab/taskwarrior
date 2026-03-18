@@ -35,7 +35,7 @@ ColumnParent::ColumnParent() {
   _name = "parent";
   _style = "long";
   _label = "Parent task";
-  _modifiable = false;
+  _modifiable = true;
   _styles = {"long", "short"};
   _examples = {"f30cb9c3-3fc0-483f-bfb2-3bf134f00694", "f30cb9c3"};
 }
