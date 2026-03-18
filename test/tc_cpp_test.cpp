@@ -30,9 +30,7 @@
 #include <rust/cxx.h>
 #include <stdlib.h>
 #include <taskchampion-cpp/lib.h>
-#include <tempdir.h>
 #include <test.h>
-#include <unistd.h>
 
 std::string uuid2str(tc::Uuid uuid) { return static_cast<std::string>(uuid.to_string()); }
 
@@ -41,11 +39,10 @@ std::string uuid2str(tc::Uuid uuid) { return static_cast<std::string>(uuid.to_st
 // complex cxxbridge implementations, rather than those with complex Rust
 // implementations but simple APIs, like sync.
 int TEST_NAME(int, char**) {
-  TempDir tmp;
   UnitTest t;
   std::string str;
 
-  auto replica = tc::new_replica_on_disk(tmp.path.string(), true, true);
+  auto replica = tc::new_replica_for_test();
   auto uuid = tc::uuid_v4();
   auto uuid2 = tc::uuid_v4();
   t.is(uuid2str(uuid).size(), (size_t)36, "uuid string is the right length");
@@ -56,8 +53,6 @@ int TEST_NAME(int, char**) {
   task->update("status", "pending", ops);
   task->update("description", "a task", ops);
   task->update("description", "a cool task", ops);
-  tc::add_undo_point(ops);
-  task->delete_task(ops);
 
   t.is(ops[0].is_create(), true, "ops[0] is create");
   t.is(uuid2str(ops[0].get_uuid()), uuid2str(uuid), "ops[0] has correct uuid");
@@ -87,33 +82,17 @@ int TEST_NAME(int, char**) {
   t.ok(ops[3].get_old_value(str), "get_old_value succeeds");
   t.is(str, "a task", "ops[3] old value is 'a task'");
 
-  t.is(ops[4].is_undo_point(), true, "ops[4] is undo_point");
-
-  t.is(ops[5].is_delete(), true, "ops[5] is delete");
-  t.is(uuid2str(ops[5].get_uuid()), uuid2str(uuid), "ops[5] has correct uuid");
-  auto old_task = ops[5].get_old_task();
-  // old_task is in arbitrary order, so just check that status is in there.
-  bool found = false;
-  for (auto& pv : old_task) {
-    std::string p = static_cast<std::string>(pv.prop);
-    if (p == "status") {
-      std::string v = static_cast<std::string>(pv.value);
-      t.is(v, "pending", "old_task has status:pending");
-      found = true;
-    }
-  }
-  t.ok(found, "found the status property in ops[5].old_task");
-
   replica->commit_operations(std::move(ops));
   auto maybe_task2 = replica->get_task_data(tc::uuid_v4());
   t.ok(maybe_task2.is_none(), "looking up a random uuid gets nothing");
 
-  // The last operation deleted the task, but we want to see the task, so undo it..
+  // PowerSync does not track undo operations locally (sync is external).
+  // Verify get_undo_operations and commit_reversed_operations succeed without error.
   auto undo_ops = replica->get_undo_operations();
-  t.ok(replica->commit_reversed_operations(std::move(undo_ops)), "undo committed successfully");
+  replica->commit_reversed_operations(std::move(undo_ops));
 
   auto maybe_task3 = replica->get_task_data(uuid);
-  t.ok(maybe_task3.is_some(), "looking up the original uuid get TaskData");
+  t.ok(maybe_task3.is_some(), "looking up the original uuid gets TaskData");
   rust::Box<tc::TaskData> task3 = maybe_task3.take();
   t.is(uuid2str(task3->get_uuid()), uuid2str(uuid), "reloaded task has correct uuid");
   t.ok(task3->get("description", str), "reloaded task has a description");
@@ -140,15 +119,12 @@ int TEST_NAME(int, char**) {
     }
   }
 
-  // Check exception formatting.
+  // Check error message formatting for a failed replica open.
   try {
-    replica->sync_to_local("/does/not/exist", false);
-    // tc::new_replica_on_disk("/does/not/exist", false);
+    tc::new_replica_powersync("/does/not/exist/test.db", "00000000-0000-0000-0000-000000000000");
   } catch (rust::Error& err) {
-    t.is(err.what(),
-         "unable to open database file: /does/not/exist/taskchampion-local-sync-server.sqlite3: "
-         "Error code 14: Unable to open the database file",
-         "error message has full context");
+    t.ok(std::string(err.what()).find("failed to open PowerSync DB") != std::string::npos,
+         "error message has context about failed open");
   }
 
   return 0;

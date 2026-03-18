@@ -56,8 +56,6 @@ CmdImportV2::CmdImportV2() {
 
 ////////////////////////////////////////////////////////////////////////////////
 int CmdImportV2::execute(std::string&) {
-  std::vector<std::map<std::string, std::string>> task_data;
-
   Context::getContext().footnote("No legacy *.data files to import (PowerSync storage).");
   return 0;
 }

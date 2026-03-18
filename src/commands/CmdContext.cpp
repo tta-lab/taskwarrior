@@ -230,16 +230,16 @@ void CmdContext::defineContext(const std::vector<std::string>& words, std::strin
     }
 
     // Set context definition config variable
-    bool read_success = CmdConfig::setConfigVariable(name + ".read", value, confirmation);
+    bool read_success = CmdConfig::setConfigVariable(name + ".read", value);
     bool write_success = false;
 
     if (valid_write_context)
-      write_success = CmdConfig::setConfigVariable(name + ".write", value, confirmation);
+      write_success = CmdConfig::setConfigVariable(name + ".write", value);
 
     // Remove old-school context name, if it exists, assuming the read context was defined
     if (read_success)
       if (config.has(name)) {
-        CmdConfig::unsetConfigVariable(name, false);
+        CmdConfig::unsetConfigVariable(name);
       }
 
     if (!read_success and !write_success)
@@ -276,19 +276,16 @@ void CmdContext::deleteContext(const std::vector<std::string>& words, std::strin
       throw format("Context '{1}' not deleted.", words[1]);
 
     // Delete legacy format and .read / .write flavours
-    auto rc = CmdConfig::unsetConfigVariable(name, false);
-    rc += CmdConfig::unsetConfigVariable(name + ".read", false);
-    rc += CmdConfig::unsetConfigVariable(name + ".write", false);
+    auto rc = CmdConfig::unsetConfigVariable(name);
+    rc += CmdConfig::unsetConfigVariable(name + ".read");
+    rc += CmdConfig::unsetConfigVariable(name + ".write");
 
     // If the currently set context was deleted, unset it
     if (Context::getContext().config.get("context") == words[1])
-      CmdConfig::unsetConfigVariable("context", false);
+      CmdConfig::unsetConfigVariable("context");
 
-    // Output feedback, rc should be even because only 0 (found and removed)
-    // and 2 (not found) are aceptable return values from unsetConfigVariable
-    if (rc % 2 != 0)
-      throw format("Context '{1}' not deleted.", words[1]);
-    else if (rc == 6)
+    // unsetConfigVariable returns 0 (removed) or 2 (not found); rc == 6 means all three were not found.
+    if (rc == 6)
       throw format("Context '{1}' not found.", words[1]);
 
     out << format("Context '{1}' deleted.\n", words[1]);
@@ -362,7 +359,7 @@ void CmdContext::setContext(const std::vector<std::string>& words, std::stringst
 
   // Set the active context.
   // Should always succeed, as we do not require confirmation.
-  bool success = CmdConfig::setConfigVariable("context", value, false);
+  bool success = CmdConfig::setConfigVariable("context", value);
 
   if (!success) throw format("Context '{1}' not applied.", value);
 
@@ -402,8 +399,8 @@ void CmdContext::showContext(std::stringstream& out) {
 // Example:      task context none
 //
 void CmdContext::unsetContext(std::stringstream& out) {
-  if (CmdConfig::unsetConfigVariable("context", false)) throw std::string("Context not unset.");
-
+  // unsetConfigVariable returns 0 (removed) or 2 (not found) — both mean context is already gone.
+  CmdConfig::unsetConfigVariable("context");
   out << "Context unset.\n";
 }
 

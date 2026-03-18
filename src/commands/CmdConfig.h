@@ -33,13 +33,20 @@
 
 class CmdConfig {
  public:
-  static bool setConfigVariable(const std::string&, const std::string&, bool confirmation = false);
-  static int unsetConfigVariable(const std::string&, bool confirmation = false);
+  static bool setConfigVariable(const std::string&, const std::string&);
+  static int unsetConfigVariable(const std::string&);
 };
 
 class CmdCompletionConfig : public Command {
  public:
   CmdCompletionConfig();
+  int execute(std::string&);
+};
+
+// Stub to give a helpful error when users run `task config` (removed; use rc.<key>:<value> instead).
+class CmdLegacyConfig : public Command {
+ public:
+  CmdLegacyConfig();
   int execute(std::string&);
 };
 

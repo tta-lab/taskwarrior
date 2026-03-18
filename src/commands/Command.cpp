@@ -108,6 +108,8 @@ void Command::factory(std::map<std::string, Command*>& all) {
   all[c->keyword()] = c;
   c = new CmdCalc();
   all[c->keyword()] = c;
+  c = new CmdLegacyConfig();
+  all[c->keyword()] = c;
   c = new CmdCalendar();
   all[c->keyword()] = c;
   c = new CmdColor();

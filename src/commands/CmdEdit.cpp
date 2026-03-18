@@ -606,8 +606,12 @@ void CmdEdit::parseTask(Task& task, const std::string& after, const std::string&
 ////////////////////////////////////////////////////////////////////////////////
 CmdEdit::editResult CmdEdit::editFile(Task& task) {
   // Use system temp directory for edit file placement.
-  std::string location_data = std::filesystem::temp_directory_path().string();
-  Directory location(location_data);
+  std::string location_data;
+  try {
+    location_data = std::filesystem::temp_directory_path().string();
+  } catch (std::filesystem::filesystem_error& e) {
+    throw std::string(std::string("Cannot locate temp directory: ") + e.what());
+  }
 
   // Create a temp file name in the temp directory.
   std::stringstream file;
@@ -619,9 +623,10 @@ CmdEdit::editResult CmdEdit::editFile(Task& task) {
   auto dateformat = Context::getContext().config.get("dateformat.edit");
   if (dateformat == "") dateformat = Context::getContext().config.get("dateformat");
 
-  // Change directory for the editor, doing nothing on error.
+  // Change directory for the editor.
   auto current_dir = Directory::cwd();
-  chdir(location_data.c_str());
+  if (chdir(location_data.c_str()) != 0)
+    throw std::string("Cannot change to temp directory: " + location_data);
 
   // Check if the file already exists, if so, bail out
   Path filepath = Path(file.str());

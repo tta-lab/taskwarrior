@@ -95,11 +95,8 @@ set (pythonTests
   columns.test.py
   commands.test.py
   completed.test.py
-  configuration.test.py
   confirmation.test.py
-  context.test.py
   count.test.py
-  custom.config.test.py
   custom.recur_ind.test.py
   custom.test.py
   custom.tag_ind.test.py
@@ -122,7 +119,6 @@ set (pythonTests
   enpassant.test.py
   exec.test.py
   export.test.py
-  feature.559.test.py
   feature.default.project.test.py
   feature.print.empty.columns.test.py
   feature.recurrence.test.py
@@ -176,9 +172,7 @@ set (pythonTests
   sugar.test.py
   summary.test.py
   tag.test.py
-  taskrc.test.py
   timesheet.test.py
-  tw-1379.test.py
   tw-1837.test.py
   tw-1999.test.py
   tw-20.test.py

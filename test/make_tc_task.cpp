@@ -39,7 +39,7 @@ namespace {
 
 ////////////////////////////////////////////////////////////////////////////////
 int usage() {
-  std::cerr << "USAGE: make_tc_task DATADIR KEY=VALUE ..\n";
+  std::cerr << "USAGE: make_tc_task DB_PATH USER_ID KEY=VALUE ..\n";
   return 1;
 }
 
@@ -50,9 +50,13 @@ int main(int argc, char** argv) {
   if (!--argc) {
     return usage();
   }
-  char* datadir = *++argv;
+  std::string db_path = *++argv;
+  if (!--argc) {
+    return usage();
+  }
+  std::string user_id = *++argv;
 
-  auto replica = tc::new_replica_on_disk(datadir, /*create_if_missing=*/true, /*read_write=*/true);
+  auto replica = tc::new_replica_powersync(db_path, user_id);
   auto uuid = tc::uuid_v4();
   auto operations = tc::new_operations();
   auto task = tc::create_task(uuid, operations);

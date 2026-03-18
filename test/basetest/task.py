@@ -344,7 +344,7 @@ class Task(object):
         make_tc_task = os.path.abspath(
             os.path.join(CMAKE_BINARY_DIR, "test", "make_tc_task")
         )
-        cmd = [make_tc_task, self.db_path]
+        cmd = [make_tc_task, self.db_path, TEST_USER_ID]
         for p, v in props.items():
             cmd.append(f"{p}={v}")
         _, out, _ = run_cmd_wait(cmd)

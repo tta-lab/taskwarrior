@@ -138,11 +138,8 @@ int CmdDiagnostics::execute(std::string& output) {
       << location.mode() << '\n'
       << "    User ID: " << ctx.powersync_user_id << '\n';
 
-  char* env = getenv("POWERSYNC_DB_PATH");
-  if (env) out << " PS_DB_PATH: " << env << '\n';
-
-  env = getenv("POWERSYNC_USER_ID");
-  if (env) out << " PS_USER_ID: " << env << '\n';
+  out << " PS_DB_PATH: " << ctx.powersync_db_path << '\n';
+  out << " PS_USER_ID: " << ctx.powersync_user_id << '\n';
 
   out << "         GC: " << (Context::getContext().config.getBoolean("gc") ? "Enabled" : "Disabled")
       << '\n';

@@ -83,7 +83,7 @@ std::string configurationDefaults =
     "# Files\n"
     "gc=1                                           # Garbage-collect data files - DO NOT CHANGE "
     "unless you are sure\n"
-    "hooks=0                                        # Master control switch for hooks (off by default; managed by ttal)\n"
+    "hooks=0                                        # Master control switch for hooks (off by default)\n"
     "\n"
     "# Terminal\n"
     "detection=1                                    # Detects terminal width\n"
@@ -505,7 +505,7 @@ Context::~Context() {
 int Context::initialize(int argc, const char** argv) {
   timer_total.start();
   int rc = 0;
-  home_dir = getenv("HOME");
+  if (char* home_env = getenv("HOME")) home_dir = home_env;
 
   std::vector<std::string> searchPaths{TASK_RCDIR};
 

@@ -50,6 +50,11 @@ void TDB2::open_replica(const std::string& db_path, const std::string& user_id) 
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+void TDB2::open_replica_for_test() {
+  _replica = tc::new_replica_for_test();
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // Add the new task to the replica.
 void TDB2::add(Task& task) {
   // Ensure the task is consistent, and provide defaults if necessary.

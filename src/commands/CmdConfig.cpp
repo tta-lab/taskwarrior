@@ -33,20 +33,41 @@
 #include <algorithm>
 
 ////////////////////////////////////////////////////////////////////////////////
-bool CmdConfig::setConfigVariable(const std::string& name, const std::string& value,
-                                  bool /* confirmation */) {
+bool CmdConfig::setConfigVariable(const std::string& name, const std::string& value) {
   Context::getContext().config.set(name, value);
   return true;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-int CmdConfig::unsetConfigVariable(const std::string& name, bool /* confirmation */) {
+int CmdConfig::unsetConfigVariable(const std::string& name) {
   auto& config = Context::getContext().config;
   if (config.has(name)) {
     config.erase(name);
     return 0;
   }
   return 2;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+CmdLegacyConfig::CmdLegacyConfig() {
+  _keyword = "config";
+  _usage = "task          config ...";
+  _description = "DEPRECATED: Use rc.<key>:<value> overrides instead";
+  _read_only = true;
+  _displays_id = false;
+  _needs_gc = false;
+  _needs_recur_update = false;
+  _uses_context = false;
+  _accepts_filter = false;
+  _accepts_modifications = false;
+  _accepts_miscellaneous = true;
+  _category = Command::Category::misc;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+int CmdLegacyConfig::execute(std::string&) {
+  throw std::string(
+      "'task config' is not supported. Use rc.<key>:<value> overrides on the command line instead.");
 }
 
 ////////////////////////////////////////////////////////////////////////////////

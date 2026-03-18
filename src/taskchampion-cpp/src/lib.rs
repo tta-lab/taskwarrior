@@ -108,6 +108,9 @@ mod ffi {
             user_id: String,
         ) -> Result<Box<Replica>>;
 
+        /// Create a new in-memory test replica (PowerSync with ephemeral storage).
+        fn new_replica_for_test() -> Result<Box<Replica>>;
+
         /// Commit the given operations to the replica.
         fn commit_operations(&mut self, ops: Vec<Operation>) -> Result<()>;
 
@@ -462,7 +465,16 @@ fn new_replica_powersync(
         let path = PathBuf::from(db_path);
         let uid = TcUuid::parse_str(&user_id)
             .map_err(|e| anyhow::anyhow!("invalid user_id UUID: {}", e))?;
-        let storage = PowerSyncStorage::new(&path, uid).await?;
+        let storage = PowerSyncStorage::new(&path, uid).await
+            .map_err(|e| anyhow::anyhow!("failed to open PowerSync DB at '{}': {}", path.display(), e))?;
+        Ok(Box::new(tc::Replica::new(storage).into()))
+    })
+}
+
+fn new_replica_for_test() -> Result<Box<Replica>, CppError> {
+    rt().block_on(async {
+        let storage = PowerSyncStorage::new_for_test().await
+            .map_err(|e| anyhow::anyhow!("failed to create in-memory test replica: {}", e))?;
         Ok(Box::new(tc::Replica::new(storage).into()))
     })
 }
