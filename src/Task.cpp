@@ -1545,6 +1545,15 @@ void Task::validate(bool applyDefault /* = true */) {
     auto parent_uuid = get("parent");
     auto my_uuid = get("uuid");
 
+    // Validate parent UUID format before calling uuid_from_string (which panics on bad input).
+    {
+      Lexer lex(parent_uuid);
+      std::string token;
+      Lexer::Type type;
+      if (!lex.isUUID(token, type, true))
+        throw format("'parent' value '{1}' is not a valid UUID.", parent_uuid);
+    }
+
     // Prevent self-parenting.
     if (parent_uuid == my_uuid) throw std::string("A task cannot be its own parent.");
 
@@ -1554,14 +1563,14 @@ void Task::validate(bool applyDefault /* = true */) {
       throw std::string("Parent task '" + parent_uuid + "' does not exist.");
 
     // Prevent circular references via bridge TreeMap.
-    if (my_uuid != "") {
-      auto tm = Context::getContext().tdb2.tree_map();
-      auto my_tc_uuid = tc::uuid_from_string(my_uuid);
-      auto parent_tc_uuid = tc::uuid_from_string(parent_uuid);
-      if (tm->is_ancestor(parent_tc_uuid, my_tc_uuid))
-        throw std::string("Circular reference detected: '" + parent_uuid +
-                          "' is already a descendant of this task.");
-    }
+    // UUID is always set at this point in validate() — the isUUID check above plus
+    // the uuid() call earlier in this function guarantee my_uuid is non-empty.
+    auto tm = Context::getContext().tdb2.tree_map();
+    auto my_tc_uuid = tc::uuid_from_string(my_uuid);
+    auto parent_tc_uuid = tc::uuid_from_string(parent_uuid);
+    if (tm->is_ancestor(parent_tc_uuid, my_tc_uuid))
+      throw std::string("Circular reference detected: '" + parent_uuid +
+                        "' is already a descendant of this task.");
   }
 #endif
 
@@ -2064,10 +2073,19 @@ void Task::modify(modType type, bool text_required /* = false */) {
       throw std::string("Cannot specify both before: and after: simultaneously.");
 
     std::string parent_uuid = get("parent");
-    auto tm = Context::getContext().tdb2.tree_map();
     bool at_root = parent_uuid.empty();
-    tc::Uuid parent_tc = at_root ? tc::uuid_from_string("00000000-0000-0000-0000-000000000000")
-                                 : tc::uuid_from_string(parent_uuid);
+
+    // Verify parent exists if this task has one (guards against dangling parent).
+    if (!at_root) {
+      Task parent_task;
+      if (!Context::getContext().tdb2.get(parent_uuid, parent_task))
+        throw std::string("Cannot reorder: parent task '" + parent_uuid + "' does not exist.");
+    }
+
+    auto tm = Context::getContext().tdb2.tree_map();
+    static constexpr const char* TC_NIL_UUID = "00000000-0000-0000-0000-000000000000";
+    tc::Uuid parent_tc =
+        at_root ? tc::uuid_from_string(TC_NIL_UUID) : tc::uuid_from_string(parent_uuid);
     tc::Uuid self_tc = tc::uuid_from_string(get("uuid"));
     auto siblings = tm->sibling_positions(parent_tc, at_root, self_tc, true);
 
@@ -2090,11 +2108,16 @@ void Task::modify(modType type, bool text_required /* = false */) {
     if (!found)
       throw format("Task '{1}' is not a sibling of this task.", target_uuid.substr(0, 8));
 
+    // Use append/prepend when at an edge (neighbor_pos is empty), between otherwise.
     std::string new_pos;
     if (has_after)
-      new_pos = static_cast<std::string>(tc::tc_between_position(target_pos, neighbor_pos));
+      new_pos = neighbor_pos.empty()
+                    ? static_cast<std::string>(tc::tc_append_position(target_pos))
+                    : static_cast<std::string>(tc::tc_between_position(target_pos, neighbor_pos));
     else
-      new_pos = static_cast<std::string>(tc::tc_between_position(neighbor_pos, target_pos));
+      new_pos = neighbor_pos.empty()
+                    ? static_cast<std::string>(tc::tc_prepend_position(target_pos))
+                    : static_cast<std::string>(tc::tc_between_position(neighbor_pos, target_pos));
     set("position", new_pos);
   }
 

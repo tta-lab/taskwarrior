@@ -38,6 +38,7 @@
 #include <util.h>
 
 #include <algorithm>
+#include <set>
 #include <unordered_set>
 #include <vector>
 
@@ -372,15 +373,22 @@ const std::vector<Task> TDB2::children(const std::string& parent_uuid) {
 ////////////////////////////////////////////////////////////////////////////////
 // Returns all descendants (children, grandchildren, etc.) of parent_uuid.
 const std::vector<Task> TDB2::descendants(const std::string& parent_uuid) {
+  // Snapshot once to avoid O(N²) rescans and to prevent infinite loops on corrupt cycles.
+  const auto snapshot = all_tasks();
   std::vector<Task> results;
   std::vector<std::string> queue = {parent_uuid};
+  std::set<std::string> visited = {parent_uuid};
   while (!queue.empty()) {
     std::string current = queue.back();
     queue.pop_back();
-    for (auto& task : all_tasks()) {
+    for (auto& task : snapshot) {
       if (task.get("parent") == current) {
         results.push_back(task);
-        queue.push_back(task.get("uuid"));
+        std::string uuid = task.get("uuid");
+        if (!visited.count(uuid)) {
+          visited.insert(uuid);
+          queue.push_back(uuid);
+        }
       }
     }
   }

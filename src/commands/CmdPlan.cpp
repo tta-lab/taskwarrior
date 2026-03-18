@@ -136,23 +136,18 @@ void CmdPlan::createSubtasks(const std::string& parentUuid,
   for (size_t i = 0; i < groups.size(); ++i) {
     const auto& g = groups[i];
 
-    // Create the task.
+    // Create the task — set annotation before add to avoid double undo/sync entries.
     Task task;
     task.set("description", g.node.title);
     task.set("parent", parentUuid);
     task.set("position", static_cast<std::string>(positions[i]));
     task.set("status", "pending");
+    if (!g.node.annotation.empty()) task.addAnnotation(g.node.annotation);
 
     Context::getContext().tdb2.add(task);
 
     std::string uuid = task.get("uuid");
     output += "  Created [" + uuid.substr(0, 8) + "] " + g.node.title + "\n";
-
-    // Add annotation if present.
-    if (!g.node.annotation.empty()) {
-      task.addAnnotation(g.node.annotation);
-      Context::getContext().tdb2.modify(task);
-    }
 
     // Recurse into children.
     if (!g.children.empty()) {
@@ -192,10 +187,10 @@ int CmdPlan::execute(std::string& output) {
   const Task& parent = filtered[0];
   std::string parentUuid = parent.get("uuid");
 
-  // Check for --replace flag in miscellaneous words.
+  // Check for replace / --replace flag in miscellaneous words.
   bool doReplace = false;
   for (auto& arg : Context::getContext().cli2.getWords()) {
-    if (arg == "replace") {
+    if (arg == "replace" || arg == "--replace") {
       doReplace = true;
       break;
     }
@@ -217,6 +212,8 @@ int CmdPlan::execute(std::string& output) {
   {
     std::ostringstream buf;
     buf << std::cin.rdbuf();
+    if (std::cin.bad() || buf.fail())
+      throw std::string("Failed to read markdown from stdin.");
     markdown = buf.str();
   }
 

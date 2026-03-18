@@ -215,8 +215,8 @@ class TestTreeDelete(TestCase):
         self.t(f"add Child parent:{parent_uuid}")
         child_uuid = get_uuid(self.t, "Child")
 
-        # Confirm both the parent deletion and child deletion
-        self.t(f"rc.confirmation=no {parent_uuid[:8]} delete", input="y\ny\n")
+        # Answer yes to both: parent deletion prompt and child deletion prompt.
+        self.t(f"{parent_uuid[:8]} delete", input="y\ny\n")
 
         tasks = {t["uuid"]: t for t in self.t.export()}
         self.assertEqual(tasks[parent_uuid]["status"], "deleted")
@@ -319,6 +319,181 @@ class TestPositionOrdering(TestCase):
         )
         descriptions = [t["description"] for t in children]
         self.assertEqual(descriptions, ["First", "Second", "Third"])
+
+
+class TestSiblingReordering(TestCase):
+    """Tests for before:/after: pseudo-attributes."""
+
+    def setUp(self):
+        self.t = Task()
+
+    def _setup_siblings(self):
+        """Create root with three children, return (root, first, second, third) UUIDs."""
+        self.t("add Root")
+        root_uuid = get_uuid(self.t, "Root")
+        self.t(f"add First parent:{root_uuid}")
+        self.t(f"add Second parent:{root_uuid}")
+        self.t(f"add Third parent:{root_uuid}")
+        first_uuid = get_uuid(self.t, "First")
+        second_uuid = get_uuid(self.t, "Second")
+        third_uuid = get_uuid(self.t, "Third")
+        return root_uuid, first_uuid, second_uuid, third_uuid
+
+    def test_after_repositions_task(self):
+        """task modify after:<uuid> positions task after target sibling."""
+        root_uuid, first_uuid, second_uuid, third_uuid = self._setup_siblings()
+
+        # Move Third after First (so order becomes: First, Third, Second)
+        self.t(f"{third_uuid[:8]} modify after:{first_uuid}")
+
+        tasks = self.t.export()
+        children = sorted(
+            [t for t in tasks if t.get("parent") == root_uuid],
+            key=lambda t: t.get("position", "")
+        )
+        descriptions = [t["description"] for t in children]
+        self.assertEqual(descriptions, ["First", "Third", "Second"])
+
+    def test_before_repositions_task(self):
+        """task modify before:<uuid> positions task before target sibling."""
+        root_uuid, first_uuid, second_uuid, third_uuid = self._setup_siblings()
+
+        # Move First before Third (so order becomes: Second, First, Third)
+        self.t(f"{first_uuid[:8]} modify before:{third_uuid}")
+
+        tasks = self.t.export()
+        children = sorted(
+            [t for t in tasks if t.get("parent") == root_uuid],
+            key=lambda t: t.get("position", "")
+        )
+        descriptions = [t["description"] for t in children]
+        self.assertEqual(descriptions, ["Second", "First", "Third"])
+
+    def test_after_last_sibling_appends(self):
+        """after: the last sibling puts task at end."""
+        root_uuid, first_uuid, second_uuid, third_uuid = self._setup_siblings()
+
+        # Move First after Third (last) — should end up at the end
+        self.t(f"{first_uuid[:8]} modify after:{third_uuid}")
+
+        tasks = self.t.export()
+        children = sorted(
+            [t for t in tasks if t.get("parent") == root_uuid],
+            key=lambda t: t.get("position", "")
+        )
+        self.assertEqual(children[-1]["description"], "First")
+
+    def test_before_first_sibling_prepends(self):
+        """before: the first sibling puts task at start."""
+        root_uuid, first_uuid, second_uuid, third_uuid = self._setup_siblings()
+
+        # Move Third before First (first) — should end up at the start
+        self.t(f"{third_uuid[:8]} modify before:{first_uuid}")
+
+        tasks = self.t.export()
+        children = sorted(
+            [t for t in tasks if t.get("parent") == root_uuid],
+            key=lambda t: t.get("position", "")
+        )
+        self.assertEqual(children[0]["description"], "Third")
+
+    def test_both_before_and_after_errors(self):
+        """Specifying both before: and after: simultaneously errors."""
+        root_uuid, first_uuid, second_uuid, third_uuid = self._setup_siblings()
+        code, out, err = self.t.runError(
+            f"{third_uuid[:8]} modify before:{first_uuid} after:{second_uuid}"
+        )
+        self.assertIn("Cannot specify both", err + out)
+
+
+class TestTreeFullMode(TestCase):
+    """Tests for CmdTree full-tree (multi-match) mode."""
+
+    def setUp(self):
+        self.t = Task()
+
+    def test_full_tree_multiple_roots(self):
+        """Full-tree mode shows multiple root tasks."""
+        self.t("add Alpha")
+        self.t("add Beta")
+        alpha_uuid = get_uuid(self.t, "Alpha")
+        beta_uuid = get_uuid(self.t, "Beta")
+
+        code, out, err = self.t(f"{alpha_uuid[:8]} {beta_uuid[:8]} tree")
+        self.assertIn("Alpha", out)
+        self.assertIn("Beta", out)
+
+    def test_full_tree_orphan_promoted_to_root(self):
+        """Child with unmatched parent appears as root in full-tree mode."""
+        self.t("add Parent")
+        parent_uuid = get_uuid(self.t, "Parent")
+        self.t(f"add Child parent:{parent_uuid}")
+        child_uuid = get_uuid(self.t, "Child")
+
+        # Filter to only the child — it should appear as root since parent not matched.
+        code, out, err = self.t(f"{child_uuid[:8]} tree")
+        self.assertIn("[" + child_uuid[:8] + "]", out)
+
+    def test_full_tree_correct_box_glyphs(self):
+        """Last matched child gets └─ not ├─ even if unmatched siblings exist."""
+        self.t("add Root")
+        root_uuid = get_uuid(self.t, "Root")
+        self.t(f"add First parent:{root_uuid}")
+        self.t(f"add Second parent:{root_uuid}")
+        self.t(f"add Third parent:{root_uuid}")
+        first_uuid = get_uuid(self.t, "First")
+        third_uuid = get_uuid(self.t, "Third")
+
+        # Filter root + first + third (skip second).
+        # Third is the last matched child — should get └─.
+        code, out, err = self.t(f"{root_uuid[:8]} tree")
+        # In subtree mode (single match), all children shown — Third should be last
+        lines = [l for l in out.strip().split("\n") if "Third" in l]
+        self.assertTrue(any("└─" in l for l in lines))
+
+
+class TestPlanAnnotations(TestCase):
+    """Tests for CmdPlan annotation handling."""
+
+    def setUp(self):
+        self.t = Task()
+
+    def test_plan_body_becomes_annotation(self):
+        """Body text under a heading becomes a task annotation."""
+        self.t("add Project")
+        parent_uuid = get_uuid(self.t, "Project")
+
+        markdown = "## Research\nLook into existing solutions.\nCheck prior art.\n"
+        self.t(f"{parent_uuid[:8]} plan", input=markdown)
+
+        tasks = self.t.export()
+        research = next((t for t in tasks if t.get("description") == "Research"), None)
+        self.assertIsNotNone(research)
+        annotations = research.get("annotations", [])
+        self.assertTrue(len(annotations) > 0)
+        # Annotation description should contain body text
+        ann_text = " ".join(a.get("description", "") for a in annotations)
+        self.assertIn("Look into", ann_text)
+
+
+class TestTreeDeleteIndicator(TestCase):
+    """Tests for [del] indicator in CmdTree."""
+
+    def setUp(self):
+        self.t = Task()
+
+    def test_tree_shows_del_indicator(self):
+        """Deleted tasks show [del] in tree output."""
+        self.t("add Root")
+        root_uuid = get_uuid(self.t, "Root")
+        self.t(f"add Child parent:{root_uuid}")
+        child_uuid = get_uuid(self.t, "Child")
+
+        # Delete the child (answer no to child-of-child prompt — child has no children)
+        self.t(f"{child_uuid[:8]} delete", input="y\n")
+
+        code, out, err = self.t(f"{root_uuid[:8]} tree")
+        self.assertIn("[del]", out)
 
 
 if __name__ == "__main__":

@@ -63,15 +63,18 @@ int CmdAdd::execute(std::string& output) {
 
   // Compute position if task has a parent (append to end of parent's children).
   if (task.has("parent") && task.get("parent") != "") {
+    static constexpr const char* TC_NIL_UUID = "00000000-0000-0000-0000-000000000000";
     auto parent_uuid = task.get("parent");
     auto tm = Context::getContext().tdb2.tree_map();
+    if (tm->had_invalid_data())
+      Context::getContext().footnote(
+          "Warning: some tasks have invalid parent UUIDs and were promoted to root level.");
     auto parent_tc = tc::uuid_from_string(parent_uuid);
-    auto nil_uuid = tc::uuid_from_string("00000000-0000-0000-0000-000000000000");
+    auto nil_uuid = tc::uuid_from_string(TC_NIL_UUID);
     auto siblings = tm->sibling_positions(parent_tc, false, nil_uuid, false);
     std::string last_pos;
     if (!siblings.empty()) last_pos = static_cast<std::string>(siblings.back().value);
-    auto new_pos = tc::tc_append_position(last_pos);
-    task.set("position", static_cast<std::string>(new_pos));
+    task.set("position", static_cast<std::string>(tc::tc_append_position(last_pos)));
   }
 
   Context::getContext().tdb2.add(task);

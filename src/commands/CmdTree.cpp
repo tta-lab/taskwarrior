@@ -51,29 +51,31 @@ CmdTree::CmdTree() {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// Return the status indicator suffix for a task (" [done]", " [del]", or "").
+static std::string statusIndicator(const Task& task) {
+  Task::status s = task.getStatus();
+  if (s == Task::completed) return " [done]";
+  if (s == Task::deleted) return " [del]";
+  return "";
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // Render one node and recursively render its children.
 void CmdTree::renderTree(std::string& output, const rust::Box<tc::TreeMapWrapper>& tree,
                          const std::map<std::string, Task>& taskMap, const std::string& uuid,
                          const std::string& prefix, bool isLast, int depth, int maxDepth) {
   auto it = taskMap.find(uuid);
-  if (it == taskMap.end()) return;
+  if (it == taskMap.end()) {
+    Context::getContext().footnote(
+        format("Warning: tree node '{1}' not found in task map — subtree may be incomplete.",
+               uuid.substr(0, 8)));
+    return;
+  }
 
   const Task& task = it->second;
-  std::string shortUuid = uuid.substr(0, 8);
-
-  // Status indicator for non-pending tasks.
-  std::string statusIndicator;
-  Task::status status = task.getStatus();
-  if (status == Task::completed)
-    statusIndicator = " [done]";
-  else if (status == Task::deleted)
-    statusIndicator = " [del]";
-
-  // Build the line.
   std::string connector = isLast ? "└─ " : "├─ ";
-  std::string line = prefix + connector + "[" + shortUuid + "] " + task.get("description") +
-                     statusIndicator + "\n";
-  output += line;
+  output += prefix + connector + "[" + uuid.substr(0, 8) + "] " + task.get("description") +
+            statusIndicator(task) + "\n";
 
   // Recurse into children if depth limit not reached.
   if (maxDepth == 0 || depth < maxDepth) {
@@ -92,13 +94,22 @@ void CmdTree::renderTree(std::string& output, const rust::Box<tc::TreeMapWrapper
 int CmdTree::execute(std::string& output) {
   int maxDepth = Context::getContext().config.getInteger("tree.depth");
 
-  // Apply filter.
+  // Apply filter first — avoid expensive tree_map() if no tasks match.
   Filter filter;
   std::vector<Task> filtered;
   filter.subset(filtered);
 
+  if (filtered.empty()) {
+    Context::getContext().footnote("No tasks specified.");
+    return 1;
+  }
+
   // Build tree map from TCH.
   auto tree = Context::getContext().tdb2.tree_map();
+
+  if (tree->had_invalid_data())
+    Context::getContext().footnote(
+        "Warning: some tasks have invalid parent UUIDs and were promoted to root level.");
 
   // Build a map of all tasks by UUID for fast lookup.
   std::map<std::string, Task> taskMap;
@@ -112,19 +123,15 @@ int CmdTree::execute(std::string& output) {
     matchedUuids.insert(task.get("uuid"));
   }
 
-  if (filtered.empty()) {
-    Context::getContext().footnote("No tasks specified.");
-    return 1;
-  }
-
   // Subtree mode: if filter matches exactly one task, show it + all descendants.
   if (filtered.size() == 1) {
     const std::string& rootUuid = filtered[0].get("uuid");
-    output += "[" + rootUuid.substr(0, 8) + "] " + filtered[0].get("description") + "\n";
+    output += "[" + rootUuid.substr(0, 8) + "] " + filtered[0].get("description") +
+              statusIndicator(filtered[0]) + "\n";
 
     tc::Uuid tcRoot = tc::uuid_from_string(rootUuid);
     auto children = tree->children(tcRoot);
-    std::string childPrefix = "";
+    std::string childPrefix;
     for (size_t i = 0; i < children.size(); ++i) {
       std::string childUuid = static_cast<std::string>(children[i].to_string());
       bool childIsLast = (i == children.size() - 1);
@@ -135,7 +142,6 @@ int CmdTree::execute(std::string& output) {
 
   // Full tree mode: find roots among the filter-matched tasks.
   // Orphaned children (matched but parent not matched) appear at root level.
-  // We render each matched task that has no matched parent as a subtree root.
   std::set<std::string> renderedUuids;
 
   // Determine which matched tasks are "visual roots" (their parent is not in the matched set).
@@ -156,28 +162,25 @@ int CmdTree::execute(std::string& output) {
     auto it = taskMap.find(rootUuid);
     if (it == taskMap.end()) continue;
 
-    // Print the root task itself.
-    std::string shortUuid = rootUuid.substr(0, 8);
-    Task::status status = it->second.getStatus();
-    std::string statusIndicator;
-    if (status == Task::completed)
-      statusIndicator = " [done]";
-    else if (status == Task::deleted)
-      statusIndicator = " [del]";
-
-    output += "[" + shortUuid + "] " + it->second.get("description") + statusIndicator + "\n";
+    output += "[" + rootUuid.substr(0, 8) + "] " + it->second.get("description") +
+              statusIndicator(it->second) + "\n";
     renderedUuids.insert(rootUuid);
 
     // Render children recursively (only matched ones).
+    // Pre-filter matched children to get correct isLast glyph.
     tc::Uuid tcRoot = tc::uuid_from_string(rootUuid);
     auto children = tree->children(tcRoot);
-    std::string prefix;
+    std::vector<std::string> matchedChildren;
     for (size_t j = 0; j < children.size(); ++j) {
       std::string childUuid = static_cast<std::string>(children[j].to_string());
-      if (!matchedUuids.count(childUuid)) continue;
-      bool childIsLast = (j == children.size() - 1);
-      renderTree(output, tree, taskMap, childUuid, prefix, childIsLast, 1, maxDepth);
-      renderedUuids.insert(childUuid);
+      if (matchedUuids.count(childUuid)) matchedChildren.push_back(childUuid);
+    }
+
+    std::string prefix;
+    for (size_t j = 0; j < matchedChildren.size(); ++j) {
+      bool childIsLast = (j == matchedChildren.size() - 1);
+      renderTree(output, tree, taskMap, matchedChildren[j], prefix, childIsLast, 1, maxDepth);
+      renderedUuids.insert(matchedChildren[j]);
     }
   }
 
