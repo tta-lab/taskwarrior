@@ -80,7 +80,6 @@ class Context {
 
  private:
   void staticInitialization();
-  void createDefaultConfig();
   void updateXtermTitle();
   void updateVerbosity();
   void loadAliases();
@@ -91,8 +90,8 @@ class Context {
  public:
   CLI2 cli2{};
   std::string home_dir{};
-  File rc_file{"~/.taskrc"};
-  Path data_dir{"~/.task"};
+  std::string powersync_db_path{};
+  std::string powersync_user_id{};
   Configuration config{};
   TDB2 tdb2{};
   Hooks hooks{};

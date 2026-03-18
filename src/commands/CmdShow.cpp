@@ -136,7 +136,6 @@ int CmdShow::execute(std::string& output) {
       " complete.all.tags"
       " confirmation"
       " context"
-      " data.location"
       " dateformat"
       " dateformat.annotation"
       " dateformat.edit"
@@ -356,17 +355,8 @@ int CmdShow::execute(std::string& output) {
   // to ensure everything is properly installed.
 
   if (Context::getContext().config.size() == 0) {
-    out << "Configuration error: .taskrc contains no entries.\n";
+    out << "Configuration error: configuration contains no entries.\n";
     rc = 1;
-  } else {
-    Directory location(Context::getContext().config.get("data.location"));
-
-    if (location._data == "")
-      out << "Configuration error: data.location not specified in .taskrc file.\n";
-
-    if (!location.exists())
-      out << "Configuration error: data.location contains a directory name that doesn't exist, or "
-             "is unreadable.\n";
   }
 
   output = out.str();

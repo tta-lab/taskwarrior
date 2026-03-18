@@ -232,16 +232,6 @@ int CmdCustom::execute(std::string& output) {
       Context::getContext().header(notice.str());
   }
 
-  std::string location = (Context::getContext().data_dir);
-  File pending_data = File(location + "/pending.data");
-  if (pending_data.exists()) {
-    Color warning = Color(Context::getContext().config.get("color.warning"));
-    std::cerr << warning.colorize(format("Found existing '*.data' files in {1}", location)) << "\n";
-    std::cerr << "  Taskwarrior's storage format changed in 3.0, requiring a manual migration.\n";
-    std::cerr << "  See https://taskwarrior.org/docs/upgrade-3/. Run `task import-v2` to import\n";
-    std::cerr << "  the tasks into the Taskwarrior-3.x format\n";
-  }
-
   feedback_backlog();
   output = out.str();
   return rc;

@@ -58,26 +58,7 @@ CmdImportV2::CmdImportV2() {
 int CmdImportV2::execute(std::string&) {
   std::vector<std::map<std::string, std::string>> task_data;
 
-  std::string location = (Context::getContext().data_dir);
-  File pending_file = File(location + "/pending.data");
-  if (pending_file.exists()) {
-    TF2 pending_tf;
-    pending_tf.target(pending_file);
-    auto& pending_tasks = pending_tf.get_tasks();
-    task_data.insert(task_data.end(), pending_tasks.begin(), pending_tasks.end());
-  }
-  File completed_file = File(location + "/completed.data");
-  if (completed_file.exists()) {
-    TF2 completed_tf;
-    completed_tf.target(completed_file);
-    auto& completed_tasks = completed_tf.get_tasks();
-    task_data.insert(task_data.end(), completed_tasks.begin(), completed_tasks.end());
-  }
-
-  auto count = import(task_data);
-
-  Context::getContext().footnote(
-      format("Imported {1} tasks from `*.data` files. You may now delete these files.", count));
+  Context::getContext().footnote("No legacy *.data files to import (PowerSync storage).");
   return 0;
 }
 

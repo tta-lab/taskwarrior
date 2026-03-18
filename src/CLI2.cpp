@@ -210,29 +210,6 @@ static const char* getValue(int argc, const char** argv, std::string arg) {
 
 ////////////////////////////////////////////////////////////////////////////////
 // Static method.
-bool CLI2::getOverride(int argc, const char** argv, File& rc) {
-  const char* value = getValue(argc, argv, "rc");
-  if (value == nullptr) return false;
-  rc = File(value);
-  return true;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// Look for CONFIG data.location and initialize a Path object.
-// Static method.
-bool CLI2::getDataLocation(int argc, const char** argv, Path& data) {
-  const char* value = getValue(argc, argv, "rc.data.location");
-  if (value == nullptr) {
-    std::string location = Context::getContext().config.get("data.location");
-    if (location != "") data = location;
-    return false;
-  }
-  data = Directory(value);
-  return true;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// Static method.
 void CLI2::applyOverrides(int argc, const char** argv) {
   auto& context = Context::getContext();
   auto last = std::find(argv, argv + argc, std::string("--"));

@@ -9,7 +9,8 @@ rust-version = "1.88.0"  # MSRV
 crate-type = ["staticlib"]
 
 [dependencies]
-taskchampion = "=3.0.1"
+taskchampion = { git = "https://github.com/tta-lab/taskchampion.git", branch = "main", features = ["storage-powersync"] }
+anyhow = "1"
 cxx = "1.0.133"
 tokio = { version = "1", features = [ "rt" ] }
 
@@ -21,4 +22,4 @@ tls-native-roots = ["taskchampion/tls-native-roots"]
 cxx-build = "1.0.133"
 
 [dev-dependencies]
-tempfile = "3"
+taskchampion = { git = "https://github.com/tta-lab/taskchampion.git", branch = "main", features = ["storage-powersync", "test-utils"] }

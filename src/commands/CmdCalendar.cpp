@@ -325,7 +325,6 @@ int CmdCalendar::execute(std::string& output) {
       if (cal != std::string::npos) executable = executable.substr(0, cal) + PACKAGE;
 
       std::vector<std::string> args;
-      args.push_back("rc:" + Context::getContext().rc_file._data);
       args.push_back("rc.due:0");
       args.push_back("rc.verbose:label,affected,blank");
       if (Context::getContext().color()) args.push_back("rc._forcecolor:on");

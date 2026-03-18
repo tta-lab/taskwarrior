@@ -69,14 +69,10 @@
 void Hooks::initialize() {
   _debug = Context::getContext().config.getInteger("debug.hooks");
 
-  // Scan <rc.hooks.location>
-  //      <rc.data.location>/hooks
+  // Scan <rc.hooks.location> only (data.location is no longer used for hooks)
   Directory d;
   if (Context::getContext().config.has("hooks.location")) {
     d = Directory(Context::getContext().config.get("hooks.location"));
-  } else {
-    d = Directory(Context::getContext().config.get("data.location"));
-    d += "hooks";
   }
 
   if (d.is_directory() && d.readable()) {
@@ -458,11 +454,8 @@ std::vector<std::string>& Hooks::buildHookScriptArgs(std::vector<std::string>& a
   // Command to be executed.
   args.push_back("command:" + Context::getContext().cli2.getCommand());
 
-  // rc file used after applying all overrides.
-  args.push_back("rc:" + Context::getContext().rc_file._data);
-
-  // Directory containing *.data files.
-  args.push_back("data:" + Context::getContext().data_dir._data);
+  // PowerSync db path.
+  args.push_back("data:" + Context::getContext().powersync_db_path);
 
   // Taskwarrior version, same as returned by "task --version"
   args.push_back("version:" + std::string(VERSION));

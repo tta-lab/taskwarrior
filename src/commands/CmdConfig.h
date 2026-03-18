@@ -31,12 +31,10 @@
 
 #include <string>
 
-class CmdConfig : public Command {
+class CmdConfig {
  public:
-  CmdConfig();
   static bool setConfigVariable(const std::string&, const std::string&, bool confirmation = false);
   static int unsetConfigVariable(const std::string&, bool confirmation = false);
-  int execute(std::string&);
 };
 
 class CmdCompletionConfig : public Command {

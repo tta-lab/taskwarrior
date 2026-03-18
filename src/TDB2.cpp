@@ -45,8 +45,8 @@ bool TDB2::debug_mode = false;
 static void dependency_scan(std::vector<Task>&);
 
 ////////////////////////////////////////////////////////////////////////////////
-void TDB2::open_replica(const std::string& location, bool create_if_missing, bool read_write) {
-  _replica = tc::new_replica_on_disk(location, create_if_missing, read_write);
+void TDB2::open_replica(const std::string& db_path, const std::string& user_id) {
+  _replica = tc::new_replica_powersync(db_path, user_id);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
