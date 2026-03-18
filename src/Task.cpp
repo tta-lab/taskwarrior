@@ -1566,6 +1566,9 @@ void Task::validate(bool applyDefault /* = true */) {
     // UUID is always set at this point in validate() — the isUUID check above plus
     // the uuid() call earlier in this function guarantee my_uuid is non-empty.
     auto tm = Context::getContext().tdb2.tree_map();
+    if (tm->had_invalid_data())
+      Context::getContext().footnote(
+          "Warning: tree data may be corrupt; cycle check may be inaccurate.");
     auto my_tc_uuid = tc::uuid_from_string(my_uuid);
     auto parent_tc_uuid = tc::uuid_from_string(parent_uuid);
     if (tm->is_ancestor(parent_tc_uuid, my_tc_uuid))

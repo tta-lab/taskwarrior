@@ -444,12 +444,14 @@ class TestTreeFullMode(TestCase):
         first_uuid = get_uuid(self.t, "First")
         third_uuid = get_uuid(self.t, "Third")
 
-        # Filter root + first + third (skip second).
-        # Third is the last matched child — should get └─.
-        code, out, err = self.t(f"{root_uuid[:8]} tree")
-        # In subtree mode (single match), all children shown — Third should be last
+        # Filter root + first + third (skip second) — full-tree mode (3 UUIDs).
+        # Third is the last matched child — should get └─ not ├─.
+        second_uuid = get_uuid(self.t, "Second")
+        code, out, err = self.t(f"{root_uuid[:8]} {first_uuid[:8]} {third_uuid[:8]} tree")
         lines = [l for l in out.strip().split("\n") if "Third" in l]
         self.assertTrue(any("└─" in l for l in lines))
+        # Second is not in the filter — should not appear
+        self.assertNotIn("Second", out)
 
 
 class TestPlanAnnotations(TestCase):
