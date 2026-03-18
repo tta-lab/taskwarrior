@@ -39,10 +39,6 @@ int TEST_NAME(int, char**) {
   Context context;
   Context::setContext(&context);
 
-  // Ensure environment has no influence.
-  unsetenv("TASKDATA");
-  unsetenv("TASKRC");
-
   try {
     // Set the context to allow GC.
     context.config.set("gc", 1);

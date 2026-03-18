@@ -95,9 +95,13 @@ void Hooks::initialize() {
   } else if (Context::getContext().config.getBoolean("hooks")) {
     if (_debug >= 1)
       Context::getContext().debug("Hook directory not readable: " + d._data);
+    else if (!Context::getContext().config.has("hooks.location"))
+      Context::getContext().footnote(
+          "Hooks are enabled (rc.hooks=1) but hooks.location is not set — no hooks will run.");
     else
       Context::getContext().footnote(
-          "Hooks are enabled (rc.hooks=1) but no hooks.location is set — no hooks will run.");
+          "Hooks are enabled (rc.hooks=1) but hooks.location '" + d._data +
+          "' is missing or unreadable — no hooks will run.");
   }
 
   _enabled = Context::getContext().config.getBoolean("hooks");
