@@ -4,6 +4,7 @@ import json
 import os
 import shlex
 import shutil
+import sqlite3
 import tempfile
 import unittest
 from .exceptions import CommandError
@@ -16,6 +17,9 @@ from .utils import (
     CMAKE_BINARY_DIR,
 )
 from .compat import STRING_TYPE
+
+# Fixed test user UUID for PowerSync storage
+TEST_USER_ID = "00000000-0000-0000-0000-000000000000"
 
 
 class Task(object):
@@ -43,23 +47,51 @@ class Task(object):
         # Configuration of the isolated environment
         self._original_pwd = os.getcwd()
         self.datadir = tempfile.mkdtemp(prefix="task_")
-        self.taskrc = os.path.join(self.datadir, "test.rc")
+        self.db_path = os.path.join(self.datadir, "powersync.db")
+
+        # rc overrides accumulated by config() calls, applied as rc.<key>:<value> args
+        self._rc_overrides = {
+            "news.version": "2.6.0",
+        }
+
+        self._init_test_db()
 
         # Ensure any instance is properly destroyed at session end
         atexit.register(lambda: self.destroy())
 
         self.reset_env()
 
-        with open(self.taskrc, "w") as rc:
-            rc.write(
-                "data.location={0}\n"
-                "hooks=off\n"
-                "news.version=2.6.0\n"
-                "".format(self.datadir)
-            )
-
         # Hooks disabled until requested
         self.hooks = None
+
+    def _init_test_db(self):
+        """Create PowerSync schema tables in a fresh SQLite database."""
+        conn = sqlite3.connect(self.db_path)
+        conn.executescript("""
+            CREATE TABLE IF NOT EXISTS tc_tasks (
+                id TEXT PRIMARY KEY, user_id TEXT, data TEXT NOT NULL DEFAULT '{}',
+                entry_at TEXT, status TEXT, description TEXT, priority TEXT,
+                modified_at TEXT, due_at TEXT, scheduled_at TEXT, start_at TEXT,
+                end_at TEXT, wait_at TEXT, parent_id TEXT, position TEXT, project_id TEXT
+            );
+            CREATE TABLE IF NOT EXISTS tc_operations (
+                id TEXT PRIMARY KEY, user_id TEXT, data TEXT NOT NULL,
+                created_at TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%f', 'now'))
+            );
+            CREATE TABLE IF NOT EXISTS projects (
+                id TEXT PRIMARY KEY, name TEXT, user_id TEXT,
+                created_at TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%f', 'now'))
+            );
+            CREATE TABLE IF NOT EXISTS tc_tags (
+                id TEXT PRIMARY KEY, task_id TEXT NOT NULL, user_id TEXT,
+                name TEXT NOT NULL, UNIQUE (task_id, name)
+            );
+            CREATE TABLE IF NOT EXISTS tc_annotations (
+                id TEXT PRIMARY KEY, task_id TEXT NOT NULL, user_id TEXT,
+                entry_at TEXT NOT NULL, description TEXT NOT NULL
+            );
+        """)
+        conn.close()
 
     def __repr__(self):
         txt = super(Task, self).__repr__()
@@ -71,38 +103,30 @@ class Task(object):
 
     def activate_hooks(self):
         """Enable self.hooks functionality and activate hooks on config"""
+        hooks_dir = os.path.join(self.datadir, "hooks")
+        os.makedirs(hooks_dir, exist_ok=True)
         self.config("hooks", "1")
-        self.hooks = Hooks(self.datadir)
+        self.config("hooks.location", hooks_dir)
+        self.hooks = Hooks(hooks_dir)
 
     def reset_env(self):
         """Set a new environment derived from the one used to launch the test"""
         # Copy all env variables to avoid clashing subprocess environments
         self.env = os.environ.copy()
 
-        # Make sure no TASKDDATA is isolated
-        self.env["TASKDATA"] = self.datadir
-        # As well as TASKRC
-        self.env["TASKRC"] = self.taskrc
+        # PowerSync storage config — no TASKRC or TASKDATA needed
+        self.env["POWERSYNC_DB_PATH"] = self.db_path
+        self.env["POWERSYNC_USER_ID"] = TEST_USER_ID
+        self.env.pop("TASKRC", None)
+        self.env.pop("TASKDATA", None)
 
     def config(self, var, value):
-        """Run setup `var` as `value` in taskd config"""
-        # Add -- to avoid misinterpretation of - in things like UUIDs
-        cmd = (self.taskw, "config", "--", var, value)
-        return run_cmd_wait(cmd, env=self.env, input="y\n")
+        """Set `var` to `value` — stored as rc override applied to every task invocation."""
+        self._rc_overrides[var] = value
 
     def del_config(self, var):
-        """Remove `var` from taskd config"""
-        cmd = (self.taskw, "config", var)
-        return run_cmd_wait(cmd, env=self.env, input="y\n")
-
-    @property
-    def taskrc_content(self):
-        """
-        Returns the contents of the taskrc file.
-        """
-
-        with open(self.taskrc, "r") as f:
-            return f.readlines()
+        """Remove `var` from rc overrides."""
+        self._rc_overrides.pop(var, None)
 
     def export(self, export_filter=None):
         """Run "task export", return JSON array of exported tasks."""
@@ -152,6 +176,10 @@ class Task(object):
 
         return args
 
+    def _rc_override_args(self):
+        """Build rc.<key>:<value> argument list from accumulated config overrides."""
+        return ["rc.{0}:{1}".format(k, v) for k, v in self._rc_overrides.items()]
+
     def runSuccess(self, args="", input=None, merge_streams=False, timeout=5):
         """Invoke task with given arguments and fail if exit code != 0
 
@@ -170,8 +198,8 @@ class Task(object):
         Returns (exit_code, stdout, stderr) if merge_streams=False
                 (exit_code, output) if merge_streams=True
         """
-        # Create a copy of the command
-        command = self._command[:]
+        # Create a copy of the command with rc overrides prepended
+        command = self._command[:] + self._rc_override_args()
 
         args = self._split_string_args_if_string(args)
         command.extend(args)
@@ -203,8 +231,8 @@ class Task(object):
         Returns (exit_code, stdout, stderr) if merge_streams=False
                 (exit_code, output) if merge_streams=True
         """
-        # Create a copy of the command
-        command = self._command[:]
+        # Create a copy of the command with rc overrides prepended
+        command = self._command[:] + self._rc_override_args()
 
         args = self._split_string_args_if_string(args)
         command.extend(args)
@@ -316,7 +344,7 @@ class Task(object):
         make_tc_task = os.path.abspath(
             os.path.join(CMAKE_BINARY_DIR, "test", "make_tc_task")
         )
-        cmd = [make_tc_task, self.datadir]
+        cmd = [make_tc_task, self.db_path]
         for p, v in props.items():
             cmd.append(f"{p}={v}")
         _, out, _ = run_cmd_wait(cmd)
