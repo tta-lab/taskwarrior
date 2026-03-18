@@ -4,32 +4,26 @@ name: tests
 on: [push, pull_request]
 
 jobs:
-  coverage:
+  tests:
     runs-on: ubuntu-latest
     steps:
       - name: Update apt repos
         run: sudo apt-get update -y
 
       - name: Install apt packages
-        run: sudo apt-get install -y build-essential cmake git uuid-dev faketime locales python3 curl gcovr ninja-build
+        run: sudo apt-get install -y build-essential cmake git uuid-dev faketime locales python3 curl ninja-build
 
       - name: Check out this repository
         uses: actions/checkout@v6
 
       - name: Configure project
-        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS=--coverage
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
 
       - name: Build project
         run: cmake --build build --target test_runner --target task_executable
 
       - name: Test project
         run: ctest --test-dir build -j 8 --output-on-failure
-
-      - name: Generate a code coverage report
-        uses: threeal/gcovr-action@v1.2.0
-        with:
-          excludes: |
-            build
 
   cargo-test:
     runs-on: ubuntu-latest
